@@ -1,5 +1,5 @@
 #include "src/uTensor/util/uTensor_util.hpp"
-#if !(defined(TARGET_MBED) || defined(ARDUINO))
+#if !(defined(TARGET_MBED) || defined(ARDUINO) || defined(__riscv__))
 #include <sys/stat.h>
 #include <dirent.h>
 #endif
@@ -45,7 +45,7 @@ uint32_t ntoh32(uint32_t val) {
   return ret;
 }
 
-#ifdef ARDUINO
+#if defined(ARDUINO) || defined(__riscv__)
 void int_env() {
 }
 #else
