@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(utensor)
 
+set(BUILD_WITH_COVERAGE ON CACHE STRING "Enable building with coverage")
+
 set( CMAKE_VERBOSE_MAKEFILE on )
 
 # set(CMAKE_CXX_FLAGS "-fPIC")
@@ -37,7 +39,10 @@ else()
 endif()
 
 # Build with code coverage
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage -ggdb")
+
+if(BUILD_WITH_COVERAGE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage -ggdb")
+endif()
 
 add_library(utensor STATIC ${SOURCES})
 
@@ -50,7 +55,7 @@ if(GTEST_FOUND)
     add_subdirectory(unity)
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_DONT_DEFINE_FOO=1 -DHAVE_GTEST")
-    
+
     # Add the helper header
     include_directories(${PROJECT_SOURCE_DIR}/TESTS)
 
