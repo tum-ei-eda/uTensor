@@ -98,7 +98,7 @@ void printVector(std::vector<uint32_t> vec);
     #include <dirent.h>
 #elif defined(_POSIX_VERSION)
     // POSIX
-#elif defined(__riscv__)
+#elif defined(__riscv)
     // RISC-V
 #else
 #if ARDUINO
