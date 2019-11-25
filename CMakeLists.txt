@@ -11,6 +11,8 @@ option (CMSIS "Use CMSIS implementation" OFF)
 if (CMSIS)
   add_definitions(-DCMSIS)
   include_directories(RISCV_CMSIS/Include)
+  file(GLOB RISCV_SOURCES RISCV_CMSIS/Source/*/*.c)
+  file(GLOB RISCV_INCLUDES RISCV_CMSIS/Include/*.h)
 endif (CMSIS)
 # set(CMAKE_CXX_FLAGS "-fPIC")
 
@@ -47,7 +49,7 @@ endif()
 # Build with code coverage
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage -ggdb")
 
-add_library(utensor STATIC ${SOURCES})
+add_library(utensor STATIC ${SOURCES} ${RISCV_SOURCES})
 
 # Configure GTest
 enable_testing()
@@ -88,6 +90,7 @@ target_include_directories(utensor PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src/uTensor/
 target_include_directories(utensor PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src/uTensor/loaders)
 target_include_directories(utensor PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src/uTensor/ops)
 target_include_directories(utensor PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src/uTensor/util)
+target_include_directories(utensor PUBLIC ${RISCV_INCLUDES})
 
 
 # Todo add install
