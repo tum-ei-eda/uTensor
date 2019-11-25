@@ -10,7 +10,7 @@ set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 option (CMSIS "Use CMSIS implementation" OFF)
 if (CMSIS)
   add_definitions(-DCMSIS)
-  include_directories(../RISCV_CMSIS/Include)
+  include_directories(RISCV_CMSIS/Include)
 endif (CMSIS)
 # set(CMAKE_CXX_FLAGS "-fPIC")
 
