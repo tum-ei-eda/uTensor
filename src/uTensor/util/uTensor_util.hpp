@@ -97,18 +97,9 @@ void printVector(std::vector<uint32_t> vec);
     #include <sys/types.h>
     #include <dirent.h>
 #elif defined(_POSIX_VERSION)
+#elif defined(__riscv__)
     // POSIX
 #else
-#if ARDUINO
-    #include "Arduino.h"
-
-    #undef max
-    #undef min
-    #undef round
-    #undef abs
-#else
-    #include "mbed.h"
-#endif
 //#   error "Unknown compiler"
     // little endian to big endian
     //uint32_t htonl(uint32_t& val);

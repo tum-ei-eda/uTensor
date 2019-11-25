@@ -1,7 +1,7 @@
 #include "src/uTensor/util/uTensor_util.hpp"
-#if !(defined(TARGET_MBED) || defined(ARDUINO))
+#if !(defined(TARGET_MBED) || defined(ARDUINO)) || defined(__riscv__)
 #include <sys/stat.h>
-#include <dirent.h>
+//#include <dirent.h>
 #endif
 #include <cstdlib>
 
@@ -44,7 +44,7 @@ uint32_t ntoh32(uint32_t val) {
 
   return ret;
 }
-
+/*
 #ifdef ARDUINO
 void int_env() {
 }
@@ -64,7 +64,7 @@ void init_env() {
     }
 }
 #endif
-
+*/
 void utensor_exit(void) {
 #ifndef __EMSCRIPTEN__
     exit(-1);

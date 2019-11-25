@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <stdio.h>
 
 template<class T1>
 void CalculateUsedRange(Tensor* input, int32_t* used_min_quan,
@@ -306,7 +307,6 @@ class ArgMaxOp : public Operator {
 
 template <class TIn, class TOut>
 void Add(S_TENSOR input, S_TENSOR input2, S_TENSOR out) {
-
   broadcastIndexTransform transf(input->getShape(), input2->getShape());
   S_TENSOR tmp_sptr;
   if(transf.is_swaped()) {

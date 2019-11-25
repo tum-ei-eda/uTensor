@@ -3,7 +3,15 @@ cmake_minimum_required(VERSION 3.10)
 project(utensor)
 
 set( CMAKE_VERBOSE_MAKEFILE on )
+add_definitions(-D__riscv__)
 
+set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
+# Let the user decide which ML Lib to use.
+option (CMSIS "Use CMSIS implementation" OFF)
+if (CMSIS)
+  add_definitions(-DCMSIS)
+  include_directories(../RISCV_CMSIS/Include)
+endif (CMSIS)
 # set(CMAKE_CXX_FLAGS "-fPIC")
 
 # Find includes in corresponding build directories
@@ -37,7 +45,7 @@ else()
 endif()
 
 # Build with code coverage
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage -ggdb")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage -ggdb")
 
 add_library(utensor STATIC ${SOURCES})
 
