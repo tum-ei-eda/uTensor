@@ -311,6 +311,7 @@ template <typename T>
 void QuantizeV2(S_TENSOR input, S_TENSOR _min_range, S_TENSOR _max_range,
                     S_TENSOR output, S_TENSOR output_min, S_TENSOR output_max) {
 
+  printf("QuantizeV2\n");
     float input_min_range = *(_min_range->read<float>(0, 0));
     float input_max_range = *(_max_range->read<float>(0, 0));
 

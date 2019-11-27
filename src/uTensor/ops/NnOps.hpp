@@ -9,6 +9,7 @@
 #endif
 #include <math.h>
 #include <algorithm>
+#include <stdio.h>
 
 void Softmax(S_TENSOR input, S_TENSOR output);
 
@@ -21,6 +22,9 @@ class SoftmaxOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS Softmax implemetation"
+
+    printf("RISCV Softmax\n");
+
     S_TENSOR input = inputs[0];
     S_TENSOR output = outputs[0]; 
     
@@ -55,6 +59,7 @@ template <class TIn, class TOut>
 void Relu(S_TENSOR input,
           S_TENSOR output) {
 
+  printf("Relu\n");
   const TIn* in = input->read<TIn>(0, 0);
   if (output && output->getSize() == 0) {
       output->resize(input->getShape());
@@ -79,6 +84,8 @@ class ReluOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS ReLu implemetation"
+
+    printf("RISCV Relu\n");
     S_TENSOR input = inputs[0];
     S_TENSOR output = outputs[0];
     
@@ -111,6 +118,7 @@ void QuantizedRelu(S_TENSOR input, S_TENSOR in_min, S_TENSOR in_max,
   const float input_max = in_max->read<T2>(0, 0)[0];
   const TIn* in = input->read<TIn>(0, 0);
 
+  printf("QuantizedRelu\n");
   const TOut min_as_quantized =
       FloatToQuantized<TOut>(0.0f, input_min, input_max);
   if (output && output->getSize() == 0) {
@@ -140,6 +148,9 @@ class QuantizedReluOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS Quantized ReLu implemetation"
+
+    printf("RISCV Quantized Relu\n");
+
     S_TENSOR input    = inputs[0]; 
     S_TENSOR in_min   = inputs[1];
     S_TENSOR in_max   = inputs[2];
@@ -317,6 +328,8 @@ class MaxPoolingOp : public Operator {
 #if defined(CMSIS)
 #warning "Using CMSIS MaxPooling implemetation"
 
+    printf("RISCV MaxPooling");
+
     S_TENSOR im_in_s  = inputs[0];
     S_TENSOR im_out_s = outputs[0];
 
@@ -412,6 +425,7 @@ class QuantizedMaxPoolingOp : public MaxPoolingOp<T> {
 #if defined(CMSIS)
 #warning "Using CMSIS Quantized MaxPooling implemetation"
 
+    printf("RISCV Quantized MaxPooling\n");
     S_TENSOR im_in_s  = this->inputs[0];
     S_TENSOR im_out_s = this->outputs[0];
 

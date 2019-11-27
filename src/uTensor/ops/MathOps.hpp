@@ -275,6 +275,7 @@ void ArgMax(S_TENSOR input, S_TENSOR dim, S_TENSOR out) {
 
   size_t out_index = 0;
 
+
   for (uint32_t i = 0; i < input->getSize(); i += reduce_dim_size) {
     TOut max_j = 0;
     TIn last_max = std::numeric_limits<TIn>::min();

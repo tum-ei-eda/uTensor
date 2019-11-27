@@ -866,6 +866,8 @@ class ConvOp : public Operator {
 #if defined(CMSIS)
 #warning "Using CMSIS implementation of convolution"
 
+    printf("RISCV Convolution\n");
+
     S_TENSOR input  = inputs[0];
     S_TENSOR filter = inputs[1];
     S_TENSOR output = outputs[0];
@@ -917,7 +919,7 @@ class ConvOp : public Operator {
     * @param[in]       dim_im_out  output tensor dimension
     * @param[in,out]   bufferA     pointer to buffer space for input
     * @param[in,out]   bufferB     pointer to buffer space for output
-    * @return     The function returns <code>riscv_MATH_SUCCESS</code>
+    * @return                      void 
     *
     * @details
     *
@@ -1044,6 +1046,7 @@ class MatMulOp : public Operator {
 #if defined(CMSIS)
 #warning "Using CMSIS FullyConnected implementation"
 
+    printf("RISCV FullyConnected\n");
     S_TENSOR input_1  = inputs[0];
     S_TENSOR input_2  = inputs[1];
     S_TENSOR output   = outputs[0];
@@ -1073,12 +1076,12 @@ class MatMulOp : public Operator {
     if(output->getSize() == 0) 
     {
       TensorShape c_shape;
-      c_shape.push_back((input_2->getShape())[0]); // dimension of input Matrix
-      c_shape.push_back((input_1->getShape())[1]); // dimension of input Vector
+      c_shape.push_back((input_1->getShape())[0]); // dimension of input Vector 
+      c_shape.push_back((input_2->getShape())[1]); // dimension of input Matrix
       output->resize(c_shape);
     }
 
-    const int       NumOfRowsInWeightMatrix = (const int) output->getShape()[0];
+    const int       NumOfRowsInWeightMatrix = (const int) output->getShape()[1];
     const uint16_t  NumForBiasShift         = 0;
     const uint16_t  NumOfRShiftForOutput    = 0;
     int16_t         InputBias[NumOfRowsInWeightMatrix];
@@ -1116,6 +1119,7 @@ class QntConvOp : public Operator {
 #if defined(CMSIS)
 #warning "Using CMSIS implementation of quantized convolution"
 
+    printf("RISCV Quantized Convolution\n");
     S_TENSOR input  = inputs[0];
     S_TENSOR filter = inputs[1];
     S_TENSOR output = outputs[0];
@@ -1226,6 +1230,7 @@ class QntMatMulOp : public Operator {
 #if defined(CMSIS)
 #warning "Using CMSIS Quantized Matrix Multiplication implementation"
 
+    printf("RISCV Quantized FullyConneted\n");
     S_TENSOR input_1  = inputs[0];
     S_TENSOR input_2  = inputs[3];
     S_TENSOR output   = outputs[0];
@@ -1252,7 +1257,7 @@ class QntMatMulOp : public Operator {
     float min_c_value;
     float max_c_value;
 
-    const int       NumOfRowsInWeightMatrix = (const int) output->getShape()[0];
+    const int       NumOfRowsInWeightMatrix = (const int) output->getShape()[1];
     const uint16_t  NumForBiasShift         = 0;
     const uint16_t  NumOfRShiftForOutput    = 0;
     int8_t          InputBias[NumOfRowsInWeightMatrix];

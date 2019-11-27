@@ -21,6 +21,7 @@
  * Title:        arm_relu_int16.c
  * Description:  int16 version of ReLU
  *
+ *
  * $Date:        August 2019
  * $Revision:    V.1.0.0
  *
@@ -59,6 +60,7 @@ void riscv_relu_int16(int16_t *data, uint16_t size)
     {
         if (data[i] < 0)
             data[i] = 0;
+        //printf("data[%d]: %d\n", i, data[i]);
     }
 }
 
