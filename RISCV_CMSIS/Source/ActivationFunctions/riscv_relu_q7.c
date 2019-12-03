@@ -62,6 +62,30 @@ void riscv_relu_int8(int8_t *data, uint16_t size)
             data[i] = 0;
     }
 }
+  /**
+   * @brief int8 RELU function
+   * @param[in,out]   data        pointer to input
+   * @param[in]       size        number of elements
+   * @param[in]       ref_point   new refernce point after quantization
+   *
+   * @details
+   *
+   * Optimized relu with QSUB instructions.
+   *
+   */
+
+void riscv_relu_int8_adj(int8_t *data, uint16_t size, int16_t ref_point)
+{
+    /* Run the following code as reference implementation for cores without DSP extension */
+
+    uint16_t i;
+
+    for (i = 0; i < size; i++)
+    {
+        if (data[i] < ref_point)
+            data[i] = ref_point;
+    }
+}
 
 /**
  * @} end of Acti group

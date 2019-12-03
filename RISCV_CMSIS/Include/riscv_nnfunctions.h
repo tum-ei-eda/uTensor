@@ -438,6 +438,16 @@ extern    "C"
     void      riscv_relu_int8(int8_t *data, uint16_t size);
 
   /**
+   * @brief int8 RELU function
+   * @param[in,out]   data        pointer to input
+   * @param[in]       size        number of elements
+   * @param[in]       ref_point   new reference point after quantization
+   * @return none.
+   */
+
+    void      riscv_relu_int8_adj(int8_t *data, uint16_t size, int16_t ref_point);
+
+  /**
    * @brief int16 RELU function
    * @param[in,out]   data        pointer to input
    * @param[in]       size        number of elements

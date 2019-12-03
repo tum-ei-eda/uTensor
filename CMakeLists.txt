@@ -5,6 +5,8 @@ project(utensor)
 set( CMAKE_VERBOSE_MAKEFILE on )
 add_definitions(-D__riscv__)
 
+set(CMAKE_TOOLCHAIN_FILE "../vp-pulpino/target_sw/riscv/baremetal/pulpino_tumeda/toolchain.cmake")
+
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 # Let the user decide which ML Lib to use.
 option (CMSIS "Use CMSIS implementation" OFF)

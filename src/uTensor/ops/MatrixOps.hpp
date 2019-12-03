@@ -6,7 +6,7 @@
 #include "src/uTensor/core/uTensorBase.hpp"
 //#include "uTensor/ops/quantization.hpp" // Deprecated
 #include <cmath>
-#include <cstdlib>
+#include <typeinfo>
 #include <limits>
 #if defined(CMSIS)
 #include "riscv_nnfunctions.h"
@@ -940,7 +940,6 @@ class ConvOp : public Operator {
     const uint16_t  DimFilterKernel = filter->getShape()[1];
     const uint16_t  Padding         = 0;
     const uint16_t  Stride          = filter->getShape()[1];
-    uint16_t        Bias[]          = {0}; 
     const uint16_t  BiasShift       = 0;
     const uint16_t  OutShift        = 0;
     TOut *          OutputImage     = output->write<TOut>(0, 0);
@@ -948,8 +947,23 @@ class ConvOp : public Operator {
     int16_t *       BufferA         = nullptr;
     int8_t *        BufferB         = nullptr; 
 
-    riscv_convolve_HWC_int16_basic((const int16_t *)InputImage, DimInputImage, ChInputImage, (const int16_t *)InWeights, ChOutputImage, DimFilterKernel,
-                                Padding, Stride,(const int16_t *)Bias, BiasShift, OutShift, (int16_t *) OutputImage, DimOutputImage, BufferA, BufferB);
+    const char * type_int8 = "a";
+    if(typeid(T1).name() == type_int8)
+    {
+      int8_t InputBias[input_rows];
+      for(int i = 0; i < input_rows; i++) { InputBias[i] = 0;}
+      riscv_convolve_HWC_int8_basic((const int8_t *)InputImage, DimInputImage, ChInputImage, (const int8_t *)InWeights, ChOutputImage, DimFilterKernel,
+                                Padding, Stride,(const int8_t *)InputBias, BiasShift, OutShift, (int8_t *) OutputImage, DimOutputImage, BufferA, BufferB);
+
+    }
+    else
+    {
+      int16_t InputBias[input_rows];
+      for(int i = 0; i < input_rows; i++) { InputBias[i] = 0;}
+      riscv_convolve_HWC_int16_basic((const int16_t *)InputImage, DimInputImage, ChInputImage, (const int16_t *)InWeights, ChOutputImage, DimFilterKernel,
+                                Padding, Stride,(const int16_t *)InputBias, BiasShift, OutShift, (int16_t *) OutputImage, DimOutputImage, BufferA, BufferB);
+    }
+
 #else
     Conv<T1, T2, TOut>(inputs[0], inputs[1], outputs[0], _strides, _padding);
 #endif
@@ -1081,19 +1095,31 @@ class MatMulOp : public Operator {
       output->resize(c_shape);
     }
 
-    const int       NumOfRowsInWeightMatrix = (const int) output->getShape()[1];
+    const uint16_t  NumOfRowsInWeightMatrix = (const uint16_t) output->getShape()[1];
     const uint16_t  NumForBiasShift         = 0;
     const uint16_t  NumOfRShiftForOutput    = 0;
-    int16_t         InputBias[NumOfRowsInWeightMatrix];
     const uint16_t  DimOfIputVector         = (const uint16_t) output->getShape()[0];
     const T1 *      InputVector             = input_1->read<T1>(0, 0);
     const T2 *      InputWeightMatrix       = input_2->read<T2>(0, 0);
     TOut *          OutputVector            = output->write<TOut>(0,0); 
-    for(int i = 0; i < NumOfRowsInWeightMatrix; i++) { InputBias[i] = 0;}
 
-    riscv_fully_connected_int16((const int16_t *)InputVector,(const int16_t *)InputWeightMatrix, 
+    const char * type_int8 = "a";
+    if(typeid(T1).name() == type_int8)
+    {
+      int8_t InputBias[NumOfRowsInWeightMatrix];
+      for(int i = 0; i < NumOfRowsInWeightMatrix; i++) { InputBias[i] = 0;}
+      riscv_fully_connected_int8((const int8_t *)InputVector,(const int8_t *)InputWeightMatrix, 
+                                DimOfIputVector, NumOfRowsInWeightMatrix, NumForBiasShift, NumOfRShiftForOutput,
+                                (const int8_t *) InputBias, (int8_t *)OutputVector, nullptr);
+    }
+    else
+    {
+      int16_t InputBias[NumOfRowsInWeightMatrix];
+      for(int i = 0; i < NumOfRowsInWeightMatrix; i++) { InputBias[i] = 0;}
+      riscv_fully_connected_int16((const int16_t *)InputVector,(const int16_t *)InputWeightMatrix, 
                                 DimOfIputVector, NumOfRowsInWeightMatrix, NumForBiasShift, NumOfRShiftForOutput,
                                 (const int16_t *) InputBias, (int16_t *)OutputVector, nullptr);
+    }
 #else
     MatMul2<T1, T2, TOut>(inputs[0], inputs[1],
      outputs[0]);
@@ -1202,7 +1228,6 @@ class QntConvOp : public Operator {
 
     riscv_convolve_HWC_int8_basic((const int8_t *)InputImage, DimInputImage, ChInputImage, (const int8_t *)InWeights, ChOutputImage, DimFilterKernel,
                                 Padding, Stride,(const int8_t *)Bias, BiasShift, OutShift, (int8_t *) OutputImage, DimOutputImage, BufferA, BufferB);
-    //TODO convert int8_t OutputImage container to int32_t, such TOut is of type int32_t
 #else
     QuantizedConv<T1, T2, TOut>(inputs[0], inputs[1], outputs[0], inputs[2], 
     inputs[3], inputs[4], inputs[5], outputs[1], outputs[2],
@@ -1257,7 +1282,7 @@ class QntMatMulOp : public Operator {
     float min_c_value;
     float max_c_value;
 
-    const int       NumOfRowsInWeightMatrix = (const int) output->getShape()[1];
+    const uint16_t  NumOfRowsInWeightMatrix = (const uint16_t) output->getShape()[1];
     const uint16_t  NumForBiasShift         = 0;
     const uint16_t  NumOfRShiftForOutput    = 0;
     int8_t          InputBias[NumOfRowsInWeightMatrix];

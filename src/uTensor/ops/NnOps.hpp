@@ -8,6 +8,7 @@
 #include "riscv_nnfunctions.h"
 #endif
 #include <math.h>
+#include <typeinfo>
 #include <algorithm>
 #include <stdio.h>
 
@@ -103,7 +104,11 @@ class ReluOp : public Operator {
       out[i] = in[i];
     }
 
-    riscv_relu_int16((int16_t *)out, size);
+    const char * type_int8 = "a";
+    if(typeid(T1).name() == type_int8) // if the input tensor has data of int8_t type
+    { riscv_relu_int8((int8_t *) out, size); }
+    else
+    { riscv_relu_int16((int16_t *)out, size); }
 #else
     Relu<T1, TOut>(inputs[0], outputs[0]);
 #endif
@@ -175,7 +180,15 @@ class QuantizedReluOp : public Operator {
       out[i] = in[i];
     }
 
-    riscv_relu_int8((int8_t *)out, size);
+    const TOut min_as_quantized = FloatToQuantized<TOut>(0.0f, input_min, input_max);
+    if(min_as_quantized == 0)
+    {
+      riscv_relu_int8((int8_t *)out, size);
+    }
+    else
+    {
+      riscv_relu_int8_adj((int8_t *)out, size, (int16_t) min_as_quantized);
+    }
 
     T2* v_out_min = out_min->write<T2>(0, 0);
     *v_out_min = input_min;
@@ -330,6 +343,13 @@ class MaxPoolingOp : public Operator {
 
     printf("RISCV MaxPooling");
 
+    const char * type_int8 = "a";
+    if(typeid(T).name() != type_int8) 
+    {
+      printf("RISCV MaxPooling can process only int8_t or char");
+      exit(1);
+    }
+
     S_TENSOR im_in_s  = inputs[0];
     S_TENSOR im_out_s = outputs[0];
 
@@ -390,14 +410,14 @@ class MaxPoolingOp : public Operator {
     int8_t *       Im_out     = (int8_t *)       im_out_s->write<T>(0, 0);
 
     riscv_maxpool_int8_HWC( Im_in,
-                        dim_im_in,
-                        ch_im_in,
-                        dim_kernel,
-                        padding,
-                        stride,
-                        dim_im_out,
-                        bufferA,
-                        Im_out);
+                            dim_im_in,
+                            ch_im_in,
+                            dim_kernel,
+                            padding,
+                            stride,
+                            dim_im_out,
+                            bufferA,
+                            Im_out);
 #else
     SpatialMaxPooling<T>(inputs[0], outputs[0], 
                          _window_rows, _window_cols, 
