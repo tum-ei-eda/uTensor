@@ -73,6 +73,144 @@ riscv_fully_connected_int16(const int16_t * pV,
                         int16_t * vec_buffer)
 {
 
+#if defined(USE_VEXT)
+#warning "Using V Extension"
+  (void)vec_buffer;
+  const int16_t *pB = pM;
+  int16_t    *pO = pOut;
+  const int16_t *pBias = bias;
+  const int16_t *pA = pV;
+
+  uint16_t  rowCnt = num_of_rows >> 2;
+
+  while (rowCnt)
+  {
+    int32_t     sum =  ((int32_t)(*pBias++) << bias_shift);
+    int32_t     sum2 = ((int32_t)(*pBias++) << bias_shift);
+    int32_t     sum3 = ((int32_t)(*pBias++) << bias_shift);
+    int32_t     sum4 = ((int32_t)(*pBias++) << bias_shift);
+
+    uint16_t  colCnt = dim_vec >> 1;
+
+    pA = pV;
+
+    /*
+     * register needed:
+     * loop counter: colCnt
+     * accumulators: sum, sum2, sum3, sum4
+     * pointers: pB, pA
+     * weight data: inM11, inM12, inM13, inM14
+     * activation data: inV
+     */
+    int tmp_vl = 0;
+    asm volatile ("COL_LOOP_%=:\n"
+                  "vsetvli %[tmp_vl], %[colCnt], e16 \n" // set register setting to 16-bit values and calculate tmp_vl=min(maxvl, colCnt)
+                  "vlh.v v0, (%[pA]) \n " // load from input Matrix into v0
+                  "vlh.v v1, (%[pB]) \n " // load from input Vector int v1
+                  "vlw.v v2, (%[sum])\n " // load from sum into v2
+                  "vmacc.vv v2, v1, v0 \n"  // v2 = v1 * v0 + v2
+                  "vsw.v v2, (%[sum]) \n"   // save v2 into sum
+                  "add %[pB], %[pB], %[tmp_vl] \n"  // adjust address to input vector
+                  "vlh.v v3, (%[pB]) \n " 
+                  "vlw.v v4, (%[sum2])\n "
+                  "vmacc.vv v4, v3, v0 \n"
+                  "vsw.v v4, (%[sum2]) \n"
+                  "add %[pB], %[pB], %[tmp_vl] \n"
+                  "vlh.v v3, (%[pB]) \n "
+                  "vlw.v v4, (%[sum3])\n "
+                  "vmacc.vv v4, v3, v0 \n"
+                  "vsw.v v4, (%[sum3]) \n"
+                  "add %[pB], %[pB], %[tmp_vl] \n"
+                  "vlh.v v5, (%[pB]) \n "
+                  "vlw.v v6, (%[sum4])\n "
+                  "vmacc.vv v6, v5, v0 \n"
+                  "vsw.v v6, (%[sum4]) \n"
+                  "add %[pA], %[pA], %[tmp_vl] \n" // adjust address to input Matrix
+                  "sub %[colCnt], %[colCnt], %[tmp_vl] \n" 
+                  "bne %[colCnt], zero, COL_LOOP%=\n"
+                  :[sum] "+r"(sum), [sum2] "+r"(sum2), [sum3] "+r"(sum3), [sum4] "+r"(sum4),[pB] "+r"(pB), [pA] "+r"(pA)
+                  :[colCnt] "r"(colCnt), [tmp_vl] "r"(tmp_vl));
+
+    colCnt = dim_vec & 0x1;
+    while (colCnt)
+    {
+      int16_t     inV = *pA++;
+      int16_t     inM = *pB++;
+      int16_t     inM2 = *pB++;
+      int16_t     inM3 = *pB++;
+      int16_t     inM4 = *pB++;
+
+      sum += inV * inM;
+      sum2 += inV * inM2;
+      sum3 += inV * inM3;
+      sum4 += inV * inM4;
+      colCnt--;
+    }                       /* while over colCnt */
+    *pO++ = (int16_t) (__SSAT((sum >> out_shift), 16));
+    *pO++ = (int16_t) (__SSAT((sum2 >> out_shift), 16));
+    *pO++ = (int16_t) (__SSAT((sum3 >> out_shift), 16));
+    *pO++ = (int16_t) (__SSAT((sum4 >> out_shift), 16));
+
+    /* adjust the pointers and counters */
+    rowCnt--;
+  }
+
+  /* left-over part of the rows */
+  rowCnt = num_of_rows & 0x3;
+
+  while (rowCnt)
+  {
+    int32_t     sum = ((int32_t)(*pBias++) << bias_shift);
+
+    uint16_t  colCnt = dim_vec >> 2;
+
+    pA = pV;
+
+    while (colCnt)
+    {
+      int32_t     inV1, inV2, inM1, inM2;
+      int tmp_vl = 0;
+      asm volatile ("COL_LOOP_%=:\n"
+                    "vsetvli %[tmp_vl], %[colCnt], e16 \n" // set register setting to 16-bit values and calculate tmp_vl=min(maxvl, colCnt)
+                    "vlh.v v0, (%[pA]) \n "           // load from input Matrix into v0
+                    "vlh.v v1, (%[pB]) \n "           // load from input Vector int v1
+                    "vlw.v v2, (%[sum])\n "           // load from sum into v2
+                    "vmacc.vv v2, v1, v0 \n"          // v2 = v1 * v0 + v2
+                    "vsw.v v2, (%[sum]) \n"           // save v2 into sum
+                    "add %[pB], %[pB], %[tmp_vl] \n"  // adjust address to input vector
+                    "add %[pA], %[pA], %[tmp_vl] \n"  // adjust address to input vector
+                    "vlh.v v3, (%[pA]) \n "           // load from input Matrix into v0
+                    "vlh.v v4, (%[pB]) \n "           // load from input Vector int v1
+                    "vlw.v v5, (%[sum])\n "           // load from sum into v2
+                    "vmacc.vv v5, v3, v4 \n"          // v5 = v3 * v4 + v5
+                    "vsw.v v5, (%[sum]) \n"           // save v5 into sum
+                    "add %[pB], %[pB], %[tmp_vl] \n"  // adjust address to input vector
+                    "add %[pA], %[pA], %[tmp_vl] \n"  // adjust address to input vector
+                    "sub %[colCnt], %[colCnt], %[tmp_vl] \n" 
+                    "bne %[colCnt], zero, COL_LOOP%=\n"
+                    :[sum] "+r"(sum), [pB] "+r"(pB), [pA] "+r"(pA)
+                    :[colCnt] "r"(colCnt), [tmp_vl] "r"(tmp_vl));
+    }
+
+    /* left-over of the vector */
+    colCnt = dim_vec & 0x3;
+    while (colCnt)
+    {
+      int16_t     inV = *pA++;
+      int16_t     inM = *pB++;
+      sum += inV * inM;
+      colCnt--;
+    }
+
+    *pO++ = (int16_t) (__SSAT((sum >> out_shift), 16));
+
+    rowCnt--;
+  }
+#else
+  /*
+   * Alternative implementation in case there is no V-Extension
+   * */
+
  (void)vec_buffer;
  int       i, j;
  /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
@@ -85,6 +223,7 @@ riscv_fully_connected_int16(const int16_t * pV,
    }
    pOut[i] = (int16_t) __SSAT((ip_out >> out_shift), 16);
  }
+#endif 
 }
 
 /**

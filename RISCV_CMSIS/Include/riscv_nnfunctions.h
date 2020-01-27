@@ -398,6 +398,30 @@ static inline uint32_t __USAT(int32_t val, uint32_t sat)
                                            int16_t * pOut,
                                            int16_t * vec_buffer);
 
+  /**
+   * @brief int16 opt fully-connected layer function
+   * @param[in]       pV          pointer to input vector
+   * @param[in]       pM          pointer to matrix weights
+   * @param[in]       dim_vec     length of the vector
+   * @param[in]       num_of_rows number of rows in weight matrix
+   * @param[in]       bias_shift  amount of left-shift for bias
+   * @param[in]       out_shift   amount of right-shift for output
+   * @param[in]       bias        pointer to bias
+   * @param[in,out]   pOut        pointer to output vector
+   * @param[in,out]   vec_buffer  pointer to buffer space for input
+   * @return     The function returns <code>riscv_MATH_SUCCESS</code>
+   *
+   */
+
+    void riscv_fully_connected_int16_vopt(const int16_t * pV,
+                                           const int16_t * pM,
+                                           const uint16_t dim_vec,
+                                           const uint16_t num_of_rows,
+                                           const uint16_t bias_shift,
+                                           const uint16_t out_shift,
+                                           const int16_t * bias,
+                                           int16_t * pOut,
+                                           int16_t * vec_buffer);
 #ifdef __cplusplus
 }
 #endif
