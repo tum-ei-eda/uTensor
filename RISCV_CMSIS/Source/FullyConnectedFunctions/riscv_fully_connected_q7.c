@@ -100,33 +100,34 @@ riscv_fully_connected_int8(const int8_t * pV,
          * activation data: inV
          */
         int tmp_vl = 0;
-        asm volatile ("COL_LOOP_%=:\n"
-                      "vsetvli %[tmp_vl], %[colCnt], e8 \n" // set register setting to 8-bit values and calculate tmp_vl=min(maxvl, colCnt)
-                      "vlb.v v0, (%[pA]) \n " // load from input Matrix into v0
-                      "vlb.v v1, (%[pB]) \n " // load from input Vector int v1
-                      "vlw.v v2, (%[sum])\n " // load from sum into v2
-                      "vmacc.vv v2, v1, v0 \n"  // v2 = v1 * v0 + v2
-                      "vsw.v v2, (%[sum]) \n"   // save v2 into sum
-                      "add %[pB], %[pB], %[tmp_vl] \n"  // adjust address to input vector
-                      "vlb.v v3, (%[pB]) \n " 
-                      "vlw.v v4, (%[sum2])\n "
-                      "vmacc.vv v4, v3, v0 \n"
-                      "vsw.v v4, (%[sum2]) \n"
-                      "add %[pB], %[pB], %[tmp_vl] \n"
-                      "vlb.v v3, (%[pB]) \n "
-                      "vlw.v v4, (%[sum3])\n "
-                      "vmacc.vv v4, v3, v0 \n"
-                      "vsw.v v4, (%[sum3]) \n"
-                      "add %[pB], %[pB], %[tmp_vl] \n"
-                      "vlb.v v5, (%[pB]) \n "
-                      "vlw.v v6, (%[sum4])\n "
-                      "vmacc.vv v6, v5, v0 \n"
-                      "vsw.v v6, (%[sum4]) \n"
-                      "add %[pA], %[pA], %[tmp_vl] \n" // adjust address to input Matrix
-                      "sub %[colCnt], %[colCnt], %[tmp_vl] \n" 
-                      "bne %[colCnt], zero, COL_LOOP%=\n"
-                      :[sum] "+r"(sum), [sum2] "+r"(sum2), [sum3] "+r"(sum3), [sum4] "+r"(sum4),[pB] "+r"(pB), [pA] "+r"(pA)
-                      :[colCnt] "r"(colCnt), [tmp_vl] "r"(tmp_vl));
+        while(colCnt)
+        {
+          asm volatile ("vsetvli %[tmp_vl], %[colCnt], e8 \n" // set register setting to 8-bit values and calculate tmp_vl=min(maxvl, colCnt)
+                        "vlb.v v0, (%[pA]) \n " // load from input Matrix into v0
+                        "vlb.v v1, (%[pB]) \n " // load from input Vector int v1
+                        "vlw.v v2, (%[sum])\n " // load from sum into v2
+                        "vmacc.vv v2, v1, v0 \n"  // v2 = v1 * v0 + v2
+                        "vsw.v v2, (%[sum]) \n"   // save v2 into sum
+                        "add %[pB], %[pB], %[tmp_vl] \n"  // adjust address to input vector
+                        "vlb.v v3, (%[pB]) \n " 
+                        "vlw.v v4, (%[sum2])\n "
+                        "vmacc.vv v4, v3, v0 \n"
+                        "vsw.v v4, (%[sum2]) \n"
+                        "add %[pB], %[pB], %[tmp_vl] \n"
+                        "vlb.v v3, (%[pB]) \n "
+                        "vlw.v v4, (%[sum3])\n "
+                        "vmacc.vv v4, v3, v0 \n"
+                        "vsw.v v4, (%[sum3]) \n"
+                        "add %[pB], %[pB], %[tmp_vl] \n"
+                        "vlb.v v5, (%[pB]) \n "
+                        "vlw.v v6, (%[sum4])\n "
+                        "vmacc.vv v6, v5, v0 \n"
+                        "vsw.v v6, (%[sum4]) \n"
+                        "add %[pA], %[pA], %[tmp_vl] \n" // adjust address to input Matrix
+                        :[sum] "+r"(sum), [sum2] "+r"(sum2), [sum3] "+r"(sum3), [sum4] "+r"(sum4),[pB] "+r"(pB), [pA] "+r"(pA)
+                        :[colCnt] "r"(colCnt), [tmp_vl] "r"(tmp_vl));
+          colCnt = colCnt - tmp_vl;
+        }
 
         colCnt = dim_vec & 0x3;
         while (colCnt)
@@ -161,10 +162,10 @@ riscv_fully_connected_int8(const int8_t * pV,
         uint16_t  colCnt = dim_vec >> 2;
 
         pA = pV;
-
-          int tmp_vl = 0;
-          asm volatile ("COL_LOOP_%=:\n"
-                        "vsetvli %[tmp_vl], %[colCnt], e8 \n"     // set register setting to 8-bit values and calculate tmp_vl=min(maxvl, colCnt)
+        int tmp_vl = 0;
+        while(colCnt)
+        {
+          asm volatile ("vsetvli %[tmp_vl], %[colCnt], e8 \n"     // set register setting to 8-bit values and calculate tmp_vl=min(maxvl, colCnt)
                         "vlb.v v0, (%[pA]) \n "                   // load from input Matrix into v0
                         "vlb.v v1, (%[pB]) \n "                   // load from input Vector int v1
                         "vlw.v v2, (%[sum])\n "                   // load from sum into v2
@@ -179,11 +180,10 @@ riscv_fully_connected_int8(const int8_t * pV,
                         "vsw.v v5, (%[sum]) \n"                   // save v2 into sum
                         "add %[pB], %[pB], %[tmp_vl] \n"          // adjust address to input vector
                         "add %[pA], %[pA], %[tmp_vl] \n"          // adjust address to input Matrix
-                        "sub %[colCnt], %[colCnt], %[tmp_vl] \n"  // decrement number done 
-                        "bne %[colCnt], zero, COL_LOOP%=\n"
                         :[sum] "+r"(sum), [pB] "+r"(pB), [pA] "+r"(pA)
                         :[colCnt] "r"(colCnt), [tmp_vl] "r"(tmp_vl));
-
+          colCnt = colCnt - tmp_vl;
+        }
         /* left-over of the vector */
         colCnt = dim_vec & 0x3;
         while (colCnt)
