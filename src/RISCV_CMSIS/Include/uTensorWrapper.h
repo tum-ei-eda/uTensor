@@ -1,5 +1,5 @@
-#ifndef _UTENSORWRAPER_H
-#define _UTENSORWRAPER_H
+#ifndef _UTENSORWRAPPER_H
+#define _UTENSORWRAPPER_H
 
 #include "../../uTensor/util/quantization_utils.hpp"
 #include "../../uTensor/core/tensor.hpp"

@@ -9,7 +9,7 @@
 #include <typeinfo>
 #include <limits>
 #if defined(CMSIS)
-#include "uTensorWraper.h"
+#include "uTensorWrapper.h"
 #endif
 
 // tensorflow/tensorflow/core/kernels/reference_gemm.h
