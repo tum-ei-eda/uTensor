@@ -9,7 +9,7 @@
 #include <typeinfo>
 #include <limits>
 #if defined(CMSIS)
-#include "riscv_nnfunctions.h"
+#include "uTensorWraper.h"
 #endif
 
 // tensorflow/tensorflow/core/kernels/reference_gemm.h
@@ -865,105 +865,7 @@ class ConvOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS implementation of convolution"
-
-    printf("RISCV Convolution\n");
-
-    S_TENSOR input  = inputs[0];
-    S_TENSOR filter = inputs[1];
-    S_TENSOR output = outputs[0];
-
-    const int32_t batch       = input->getShape()[0];
-    const int32_t input_rows  = input->getShape()[1];
-    const int32_t input_cols  = input->getShape()[2];
-    const int32_t in_depth    = input->getShape()[3];
-
-    const int32_t filter_rows = filter->getShape()[0];
-    const int32_t filter_cols = filter->getShape()[1];
-    const int32_t out_depth   = filter->getShape()[3];
-
-    std::vector<int32_t> strides_ = this->_strides;
-    const int stride_rows     = strides_[1];
-    const int stride_cols     = strides_[2];
-
-    int32_t out_rows, out_cols;
-    if (this->_padding == VALID)
-    {
-      out_rows = (input_rows - filter_rows) / stride_rows + 1;
-      out_cols = (input_cols - filter_cols) / stride_cols + 1;
-    } else {
-      // SAME
-      out_rows = input_rows;
-      out_cols = input_cols;
-    }
-    //TensorShape out_shape({batch, out_rows, out_cols, out_depth});
-    TensorShape c_shape;
-    c_shape.push_back(batch);
-    c_shape.push_back(out_rows);
-    c_shape.push_back(out_cols);
-    c_shape.push_back(out_depth);
-    output->resize(c_shape);
-     /**
-    * @brief Basic int16 convolution function
-    * @param[in]       Im_in       pointer to input tensor
-    * @param[in]       dim_im_in   input tensor dimention
-    * @param[in]       ch_im_in    number of input tensor channels
-    * @param[in]       wt          pointer to kernel weights
-    * @param[in]       ch_im_out   number of filters, i.e., output tensor channels
-    * @param[in]       dim_kernel  filter kernel size
-    * @param[in]       padding     padding sizes
-    * @param[in]       stride      convolution stride
-    * @param[in]       bias        pointer to bias
-    * @param[in]       bias_shift  amount of left-shift for bias
-    * @param[in]       out_shift   amount of right-shift for output
-    * @param[in,out]   Im_out      pointer to output tensor
-    * @param[in]       dim_im_out  output tensor dimension
-    * @param[in,out]   bufferA     pointer to buffer space for input
-    * @param[in,out]   bufferB     pointer to buffer space for output
-    * @return                      void 
-    *
-    * @details
-    *
-    * <b>Buffer size:</b>
-    *
-    * bufferA size: ch_im_in*dim_kernel*dim_kernel
-    *
-    * bufferB size: 0
-    *
-    * This basic version is designed to work for any input tensor and weight
-    * dimension.
-    */
-    const T1 *      InputImage      = input->read<T1>(0, 0);
-    const uint16_t  DimInputImage   = input->getShape()[1]; 
-    const uint16_t  ChInputImage    = input->getShape()[3];
-    const T2 *      InWeights       = filter->read<T2>(0, 0);
-    const uint16_t  ChOutputImage   = filter->getShape()[3];
-    const uint16_t  DimFilterKernel = filter->getShape()[1];
-    const uint16_t  Padding         = 0;
-    const uint16_t  Stride          = filter->getShape()[1];
-    const uint16_t  BiasShift       = 0;
-    const uint16_t  OutShift        = 0;
-    TOut *          OutputImage     = output->write<TOut>(0, 0);
-    const uint16_t  DimOutputImage  = output->getShape()[1];
-    int16_t *       BufferA         = nullptr;
-    int8_t *        BufferB         = nullptr; 
-
-    const char * type_int8 = "a";
-    if(typeid(T1).name() == type_int8)
-    {
-      int8_t InputBias[input_rows];
-      for(int i = 0; i < input_rows; i++) { InputBias[i] = 0;}
-      riscv_convolve_HWC_int8_basic((const int8_t *)InputImage, DimInputImage, ChInputImage, (const int8_t *)InWeights, ChOutputImage, DimFilterKernel,
-                                Padding, Stride,(const int8_t *)InputBias, BiasShift, OutShift, (int8_t *) OutputImage, DimOutputImage, BufferA, BufferB);
-
-    }
-    else
-    {
-      int16_t InputBias[input_rows];
-      for(int i = 0; i < input_rows; i++) { InputBias[i] = 0;}
-      riscv_convolve_HWC_int16_basic((const int16_t *)InputImage, DimInputImage, ChInputImage, (const int16_t *)InWeights, ChOutputImage, DimFilterKernel,
-                                Padding, Stride,(const int16_t *)InputBias, BiasShift, OutShift, (int16_t *) OutputImage, DimOutputImage, BufferA, BufferB);
-    }
-
+    ConvRiscv<T1, T2, TOut>(inputs[0], inputs[1], outputs[0], _strides, _padding);
 #else
     Conv<T1, T2, TOut>(inputs[0], inputs[1], outputs[0], _strides, _padding);
 #endif
@@ -1059,67 +961,8 @@ class MatMulOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS FullyConnected implementation"
-
-    printf("RISCV FullyConnected\n");
-    S_TENSOR input_1  = inputs[0];
-    S_TENSOR input_2  = inputs[1];
-    S_TENSOR output   = outputs[0];
-
-  /**
-   * @brief int16 opt fully-connected layer function
-   * @param[in]       pV          pointer to input vector
-   * @param[in]       pM          pointer to matrix weights
-   * @param[in]       dim_vec     length of the vector
-   * @param[in]       num_of_rows number of rows in weight matrix
-   * @param[in]       bias_shift  amount of left-shift for bias
-   * @param[in]       out_shift   amount of right-shift for output
-   * @param[in]       bias        pointer to bias
-   * @param[in,out]   pOut        pointer to output vector
-   * @param[in,out]   vec_buffer  pointer to buffer space for input
-   * @return     The function returns <code>riscv_MATH_SUCCESS</code>
-   *
-   *
-   * @details
-   *
-   * <b>Buffer size:</b>
-   *
-   * vec_buffer size: 0
-   *
-   */
-
-    if(output->getSize() == 0) 
-    {
-      TensorShape c_shape;
-      c_shape.push_back((input_1->getShape())[0]); // dimension of input Vector 
-      c_shape.push_back((input_2->getShape())[1]); // dimension of input Matrix
-      output->resize(c_shape);
-    }
-
-    const uint16_t  NumOfRowsInWeightMatrix = (const uint16_t) output->getShape()[1];
-    const uint16_t  NumForBiasShift         = 0;
-    const uint16_t  NumOfRShiftForOutput    = 0;
-    const uint16_t  DimOfIputVector         = (const uint16_t) output->getShape()[0];
-    const T1 *      InputVector             = input_1->read<T1>(0, 0);
-    const T2 *      InputWeightMatrix       = input_2->read<T2>(0, 0);
-    TOut *          OutputVector            = output->write<TOut>(0,0); 
-
-    const char * type_int8 = "a";
-    if(typeid(T1).name() == type_int8)
-    {
-      int8_t InputBias[NumOfRowsInWeightMatrix];
-      for(int i = 0; i < NumOfRowsInWeightMatrix; i++) { InputBias[i] = 0;}
-      riscv_fully_connected_int8((const int8_t *)InputVector,(const int8_t *)InputWeightMatrix, 
-                                DimOfIputVector, NumOfRowsInWeightMatrix, NumForBiasShift, NumOfRShiftForOutput,
-                                (const int8_t *) InputBias, (int8_t *)OutputVector, nullptr);
-    }
-    else
-    {
-      int16_t InputBias[NumOfRowsInWeightMatrix];
-      for(int i = 0; i < NumOfRowsInWeightMatrix; i++) { InputBias[i] = 0;}
-      riscv_fully_connected_int16((const int16_t *)InputVector,(const int16_t *)InputWeightMatrix, 
-                                DimOfIputVector, NumOfRowsInWeightMatrix, NumForBiasShift, NumOfRShiftForOutput,
-                                (const int16_t *) InputBias, (int16_t *)OutputVector, nullptr);
-    }
+    MatMul2Riscv<T1, T2, TOut>(inputs[0], inputs[1],
+     outputs[0]);
 #else
     MatMul2<T1, T2, TOut>(inputs[0], inputs[1],
      outputs[0]);
@@ -1144,90 +987,9 @@ class QntConvOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS implementation of quantized convolution"
-
-    printf("RISCV Quantized Convolution\n");
-    S_TENSOR input  = inputs[0];
-    S_TENSOR filter = inputs[1];
-    S_TENSOR output = outputs[0];
-
-    const int32_t batch       = input->getShape()[0];
-    const int32_t input_rows  = input->getShape()[1];
-    const int32_t input_cols  = input->getShape()[2];
-    const int32_t in_depth    = input->getShape()[3];
-
-    const int32_t filter_rows = filter->getShape()[0];
-    const int32_t filter_cols = filter->getShape()[1];
-    const int32_t out_depth   = filter->getShape()[3];
-
-    std::vector<int32_t> strides_ = this->_strides;
-    const int stride_rows     = strides_[1];
-    const int stride_cols     = strides_[2];
-
-    int32_t out_rows, out_cols;
-    if (this->_padding == VALID)
-    {
-      out_rows = (input_rows - filter_rows) / stride_rows + 1;
-      out_cols = (input_cols - filter_cols) / stride_cols + 1;
-    } else {
-      // SAME
-      out_rows = input_rows;
-      out_cols = input_cols;
-    }
-    //TensorShape out_shape({batch, out_rows, out_cols, out_depth});
-    TensorShape c_shape;
-    c_shape.push_back(batch);
-    c_shape.push_back(out_rows);
-    c_shape.push_back(out_cols);
-    c_shape.push_back(out_depth);
-    output->resize(c_shape);
-     /**
-    * @brief Basic int16 convolution function
-    * @param[in]       Im_in       pointer to input tensor
-    * @param[in]       dim_im_in   input tensor dimention
-    * @param[in]       ch_im_in    number of input tensor channels
-    * @param[in]       wt          pointer to kernel weights
-    * @param[in]       ch_im_out   number of filters, i.e., output tensor channels
-    * @param[in]       dim_kernel  filter kernel size
-    * @param[in]       padding     padding sizes
-    * @param[in]       stride      convolution stride
-    * @param[in]       bias        pointer to bias
-    * @param[in]       bias_shift  amount of left-shift for bias
-    * @param[in]       out_shift   amount of right-shift for output
-    * @param[in,out]   Im_out      pointer to output tensor
-    * @param[in]       dim_im_out  output tensor dimension
-    * @param[in,out]   bufferA     pointer to buffer space for input
-    * @param[in,out]   bufferB     pointer to buffer space for output
-    * @return     The function returns <code>riscv_MATH_SUCCESS</code>
-    *
-    * @details
-    *
-    * <b>Buffer size:</b>
-    *
-    * bufferA size: ch_im_in*dim_kernel*dim_kernel
-    *
-    * bufferB size: 0
-    *
-    * This basic version is designed to work for any input tensor and weight
-    * dimension.
-    */
-    const T1 *      InputImage      = input->read<T1>(0, 0);
-    const uint16_t  DimInputImage   = input->getShape()[1]; 
-    const uint16_t  ChInputImage    = input->getShape()[3];
-    const T2 *      InWeights       = filter->read<T2>(0, 0);
-    const uint16_t  ChOutputImage   = filter->getShape()[3];
-    const uint16_t  DimFilterKernel = filter->getShape()[1];
-    const uint16_t  Padding         = 0;
-    const uint16_t  Stride          = filter->getShape()[1];
-    uint16_t        Bias[]          = {0}; 
-    const uint16_t  BiasShift       = 0;
-    const uint16_t  OutShift        = 0;
-    TOut *          OutputImage     = output->write<TOut>(0, 0);
-    const uint16_t  DimOutputImage  = output->getShape()[1];
-    int16_t *       BufferA         = nullptr;
-    int8_t *        BufferB         = nullptr; 
-
-    riscv_convolve_HWC_int8_basic((const int8_t *)InputImage, DimInputImage, ChInputImage, (const int8_t *)InWeights, ChOutputImage, DimFilterKernel,
-                                Padding, Stride,(const int8_t *)Bias, BiasShift, OutShift, (int8_t *) OutputImage, DimOutputImage, BufferA, BufferB);
+    QuantizedConvRiscv<T1, T2, TOut>(inputs[0], inputs[1], outputs[0], inputs[2], 
+    inputs[3], inputs[4], inputs[5], outputs[1], outputs[2],
+    _strides, _padding);
 #else
     QuantizedConv<T1, T2, TOut>(inputs[0], inputs[1], outputs[0], inputs[2], 
     inputs[3], inputs[4], inputs[5], outputs[1], outputs[2],
@@ -1254,54 +1016,9 @@ class QntMatMulOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS Quantized Matrix Multiplication implementation"
-
-    printf("RISCV Quantized FullyConneted\n");
-    S_TENSOR input_1  = inputs[0];
-    S_TENSOR input_2  = inputs[3];
-    S_TENSOR output   = outputs[0];
-    S_TENSOR mina     = inputs[1];
-    S_TENSOR minb     = inputs[4];
-    S_TENSOR maxa     = inputs[2];
-    S_TENSOR maxb     = inputs[5];
-    S_TENSOR outmin   = outputs[1];
-    S_TENSOR outmax   = outputs[2];
-
-    const float min_a = *(mina->read<float>(0, 0));
-    const float max_a = *(maxa->read<float>(0, 0));
-    const float min_b = *(minb->read<float>(0, 0));
-    const float max_b = *(maxb->read<float>(0, 0));
-
-    //auto tensor allocation
-    if(output->getSize() == 0) {
-      TensorShape c_shape;
-      c_shape.push_back((input_1->getShape())[0]);
-      c_shape.push_back((input_2->getShape())[1]);
-      output->resize(c_shape);
-    }
-
-    float min_c_value;
-    float max_c_value;
-
-    const uint16_t  NumOfRowsInWeightMatrix = (const uint16_t) output->getShape()[1];
-    const uint16_t  NumForBiasShift         = 0;
-    const uint16_t  NumOfRShiftForOutput    = 0;
-    int8_t          InputBias[NumOfRowsInWeightMatrix];
-    const uint16_t  DimOfIputVector         = (const uint16_t) output->getShape()[0];
-    const T1 *      InputVector             = input_1->read<T1>(0, 0);
-    const T2 *      InputWeightMatrix       = input_2->read<T2>(0, 0);
-    TOut *          OutputVector            = output->write<TOut>(0,0); 
-    for(int i = 0; i < NumOfRowsInWeightMatrix; i++) { InputBias[i] = 0;}
-
-    riscv_fully_connected_int8((const int8_t *)InputVector,(const int8_t *)InputWeightMatrix, 
-                                DimOfIputVector, NumOfRowsInWeightMatrix, NumForBiasShift, NumOfRShiftForOutput,
-                                (const int8_t *) InputBias, (int8_t *)OutputVector, nullptr);
-    float* c_min = outmin->write<float>(0, 0);
-    *c_min = min_c_value;
-    float* c_max = outmax->write<float>(0, 0);
-    *c_max = max_c_value;
-
-    //TODO convert int8_t OutputVector container to int32_t, such TOut is of type int32_t
-
+    QuantizedMatMul2Riscv<T1, T2, TOut>(inputs[0], inputs[3],
+     outputs[0], inputs[1], inputs[4], inputs[2], inputs[5],
+      outputs[1], outputs[2]);
 #else
     QuantizedMatMul2<T1, T2, TOut>(inputs[0], inputs[3],
      outputs[0], inputs[1], inputs[4], inputs[2], inputs[5],

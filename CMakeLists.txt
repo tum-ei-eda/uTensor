@@ -5,7 +5,7 @@ project(utensor)
 set( CMAKE_VERBOSE_MAKEFILE on )
 add_definitions(-D__riscv__)
 
-set(CMAKE_TOOLCHAIN_FILE "../vp-pulpino/target_sw/riscv/baremetal/pulpino_tumeda/toolchain.cmake")
+set(CMAKE_TOOLCHAIN_FILE "../etiss/build_dir/installed/examples/SW/riscv/cmake/pulpino_tumeda/toolchain.cmake")
 
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 # Let the user decide which ML Lib to use.
@@ -15,9 +15,9 @@ if (CMSIS)
   if(USE_VEXT)
     add_definitions(-DUSE_VEXT)
   endif(USE_VEXT)
-  include_directories(RISCV_CMSIS/Include)
-  file(GLOB RISCV_SOURCES RISCV_CMSIS/Source/*/*.c)
-  file(GLOB RISCV_INCLUDES RISCV_CMSIS/Include/*.h)
+  include_directories(src/RISCV_CMSIS/Include)
+  file(GLOB RISCV_SOURCES src/RISCV_CMSIS/Source/*/*.c)
+  file(GLOB RISCV_INCLUDES src/RISCV_CMSIS/Include/*.h)
 endif (CMSIS)
 # set(CMAKE_CXX_FLAGS "-fPIC")
 

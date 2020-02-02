@@ -74,7 +74,7 @@ riscv_fully_connected_int8(const int8_t * pV,
 {
 #if defined(USE_VEXT)
 #warning "Using V Extension"
-  printf("Using V-Extension\n");
+  //printf("Using V-Extension\n");
     const int8_t *pB = pM;
     int8_t     *pO = pOut;
     const int8_t *pBias = bias;
@@ -200,7 +200,7 @@ riscv_fully_connected_int8(const int8_t * pV,
     }
 
 #else
-  printf("Using without V-Extension\n");
+  //printf("Using without V-Extension\n");
     int       i, j;
 
     /* Run the following code as reference implementation in case there is no V-Extension provided */

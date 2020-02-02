@@ -114,10 +114,10 @@ riscv_convolve_HWC_int16_basic(const int16_t * Im_in,
                                     Im_in[(in_row * dim_im_in + in_col) * ch_im_in +
                                           l] * wt[i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel +
                                                                                             n) * ch_im_in + l];
-                                printf("Im_in[%d] * wt[%d]: %d * %d\n", (in_row * dim_im_in + in_col) * ch_im_in + l, 
+                                /*printf("Im_in[%d] * wt[%d]: %d * %d\n", (in_row * dim_im_in + in_col) * ch_im_in + l, 
                                                                         Im_in[(in_row * dim_im_in + in_col) * ch_im_in + l],
                                                                         i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel + n) * ch_im_in + l,
-                                                                        wt[i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel + n) * ch_im_in + l]);
+                                                                        wt[i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel + n) * ch_im_in + l]);*/
                             }
                         }
                     }

@@ -5,7 +5,7 @@
 #include "src/uTensor/core/tensor.hpp"
 #include "src/uTensor/core/uTensorBase.hpp"
 #if defined(CMSIS)
-#include "riscv_nnfunctions.h"
+#include "uTensorWraper.h"
 #endif
 #include <math.h>
 #include <typeinfo>
@@ -23,33 +23,7 @@ class SoftmaxOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS Softmax implemetation"
-
-    printf("RISCV Softmax\n");
-
-    S_TENSOR input = inputs[0];
-    S_TENSOR output = outputs[0]; 
-    
-    if(input->getDim() != 1)
-    {
-      for(int i = 0; i < input->getDim() - 1; i++)
-      {
-        if(input->getShape().at(i) != 1)
-        {
-          ERR_EXIT("Softmax is supported only for flatten Tensor");
-        }
-      }
-    }
-
-    if (output && output->getSize() == 0)
-    {
-      output->resize(input->getShape());
-    }
-
-    const int16_t * in = (const int16_t *)input->read<int>(0,0);
-    int16_t * out = (int16_t *)output->write<int>(0, 0);
-
-    const uint16_t size = (const uint16_t)output->getSize();
-    riscv_softmax_int16(in, size, out);
+    SoftmaxRiscv(inputs[0],outputs[0]);
 #else
     Softmax(inputs[0], outputs[0]);
 #endif
@@ -60,7 +34,7 @@ template <class TIn, class TOut>
 void Relu(S_TENSOR input,
           S_TENSOR output) {
 
-  printf("Relu\n");
+  //printf("Relu\n");
   const TIn* in = input->read<TIn>(0, 0);
   if (output && output->getSize() == 0) {
       output->resize(input->getShape());
@@ -85,30 +59,7 @@ class ReluOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS ReLu implemetation"
-
-    printf("RISCV Relu\n");
-    S_TENSOR input = inputs[0];
-    S_TENSOR output = outputs[0];
-    
-    const T1 * in = input->read<T1>(0,0);
-    if (output && output->getSize() == 0)
-    {
-      output->resize(input->getShape());
-    }
-
-    TOut * out = output->write<TOut>(0, 0);
-
-    const uint16_t size = (const uint16_t)output->getSize();
-    for(uint16_t i = 0; i < size; i++)
-    {
-      out[i] = in[i];
-    }
-
-    const char * type_int8 = "a";
-    if(typeid(T1).name() == type_int8) // if the input tensor has data of int8_t type
-    { riscv_relu_int8((int8_t *) out, size); }
-    else
-    { riscv_relu_int16((int16_t *)out, size); }
+    ReluRiscv<T1, TOut>(inputs[0], outputs[0]);
 #else
     Relu<T1, TOut>(inputs[0], outputs[0]);
 #endif
@@ -123,7 +74,7 @@ void QuantizedRelu(S_TENSOR input, S_TENSOR in_min, S_TENSOR in_max,
   const float input_max = in_max->read<T2>(0, 0)[0];
   const TIn* in = input->read<TIn>(0, 0);
 
-  printf("QuantizedRelu\n");
+  //printf("QuantizedRelu\n");
   const TOut min_as_quantized =
       FloatToQuantized<TOut>(0.0f, input_min, input_max);
   if (output && output->getSize() == 0) {
@@ -153,47 +104,7 @@ class QuantizedReluOp : public Operator {
   virtual void compute() override {
 #if defined(CMSIS)
 #warning "Using CMSIS Quantized ReLu implemetation"
-
-    printf("RISCV Quantized Relu\n");
-
-    S_TENSOR input    = inputs[0]; 
-    S_TENSOR in_min   = inputs[1];
-    S_TENSOR in_max   = inputs[2];
-    S_TENSOR output   = outputs[0];
-    S_TENSOR out_min  = outputs[1];
-    S_TENSOR out_max  = outputs[2];
-
-    const float input_min = in_min->read<T2>(0, 0)[0];
-    const float input_max = in_max->read<T2>(0, 0)[0];
-    const T1* in = input->read<T1>(0, 0);
-
-    if (output && output->getSize() == 0)
-    {
-      output->resize(input->getShape());
-    }
-
-    TOut * out = output->write<TOut>(0, 0);
-
-    const uint16_t size = (const uint16_t)output->getSize();
-    for(uint16_t i = 0; i < size; i++)
-    { 
-      out[i] = in[i];
-    }
-
-    const TOut min_as_quantized = FloatToQuantized<TOut>(0.0f, input_min, input_max);
-    if(min_as_quantized == 0)
-    {
-      riscv_relu_int8((int8_t *)out, size);
-    }
-    else
-    {
-      riscv_relu_int8_adj((int8_t *)out, size, (int16_t) min_as_quantized);
-    }
-
-    T2* v_out_min = out_min->write<T2>(0, 0);
-    *v_out_min = input_min;
-    T2* v_out_max = out_max->write<T2>(0, 0);
-    *v_out_max = input_max;
+    QuantizedReluRiscv<T1, T2, TOut>(inputs[0], inputs[1], inputs[2], outputs[0], outputs[1], outputs[2]);
 #else
     QuantizedRelu<T1, T2, TOut>(inputs[0], inputs[1], inputs[2], outputs[0], outputs[1], outputs[2]);
 #endif
@@ -340,84 +251,9 @@ class MaxPoolingOp : public Operator {
 
 #if defined(CMSIS)
 #warning "Using CMSIS MaxPooling implemetation"
-
-    printf("RISCV MaxPooling");
-
-    const char * type_int8 = "a";
-    if(typeid(T).name() != type_int8) 
-    {
-      printf("RISCV MaxPooling can process only int8_t or char");
-      exit(1);
-    }
-
-    S_TENSOR im_in_s  = inputs[0];
-    S_TENSOR im_out_s = outputs[0];
-
-    TensorShape in_shape = im_in_s->getShape();
-    uint32_t in_rows = in_shape[1];
-    uint32_t in_cols = in_shape[2];
-    uint32_t in_channels = in_shape[3];
-
-    size_t out_rows, out_cols;
-    int pad_top, pad_left;
-    if (_padding == VALID)
-    {
-      out_rows = ((size_t) ceil(((float)(in_rows - _window_rows) + 1) / ((float)_row_stride)));
-      out_cols = ((size_t) ceil(((float)(in_cols - _window_cols) + 1) / ((float)_col_stride)));
-      // no padding for VALID
-      pad_top = 0;
-      pad_left = 0;
-    } 
-    else 
-    { 
-      // SAME padding
-      out_rows = ((size_t) ceil(((float)in_rows) / ((float) _row_stride)));
-      out_cols = ((size_t) ceil(((float)in_cols) / ((float) _col_stride)));
-      if (in_rows % _row_stride == 0) 
-      {
-        pad_top = std::max(_window_rows - _row_stride, 0) / 2;
-      } 
-      else 
-      {
-        pad_top = std::max(_window_rows - (((int) in_rows) % _row_stride), 0) / 2;
-      }
-      
-      if (in_cols % _col_stride == 0) 
-      {
-        pad_left = std::max(_window_cols - _col_stride, 0) / 2;
-      } 
-      else 
-      {
-        pad_left = std::max(_window_cols - (((int) in_cols) % _col_stride), 0) / 2;
-      }
-    }
-
-    TensorShape out_shape;
-    out_shape.clear();
-    out_shape.push_back(out_rows);
-    out_shape.push_back(out_cols);
-    out_shape.push_back(in_channels);
-    im_out_s->resize(out_shape);
-
-    int8_t *       Im_in      = (int8_t *)       im_in_s->read<T>(0, 0);
-    const uint16_t dim_im_in  = (const uint16_t) im_in_s->getShape()[1]; 
-    const uint16_t ch_im_in   = (const uint16_t) im_in_s->getShape()[3];
-    const uint16_t dim_kernel = (const uint16_t) _window_rows;
-    const uint16_t padding    = (const uint16_t) pad_top;
-    const uint16_t stride     = (const uint16_t) _row_stride;
-    const uint16_t dim_im_out = (const uint16_t) im_out_s->getShape()[0];
-    int8_t *       bufferA    = nullptr; 
-    int8_t *       Im_out     = (int8_t *)       im_out_s->write<T>(0, 0);
-
-    riscv_maxpool_int8_HWC( Im_in,
-                            dim_im_in,
-                            ch_im_in,
-                            dim_kernel,
-                            padding,
-                            stride,
-                            dim_im_out,
-                            bufferA,
-                            Im_out);
+    SpatialMaxPoolingRiscv<T>(inputs[0], outputs[0], 
+                         _window_rows, _window_cols, 
+                         _row_stride, _col_stride, _padding);
 #else
     SpatialMaxPooling<T>(inputs[0], outputs[0], 
                          _window_rows, _window_cols, 
@@ -444,77 +280,10 @@ class QuantizedMaxPoolingOp : public MaxPoolingOp<T> {
 
 #if defined(CMSIS)
 #warning "Using CMSIS Quantized MaxPooling implemetation"
-
-    printf("RISCV Quantized MaxPooling\n");
-    S_TENSOR im_in_s  = this->inputs[0];
-    S_TENSOR im_out_s = this->outputs[0];
-
-
-    TensorShape in_shape = im_in_s->getShape();
-    uint32_t in_rows = in_shape[1];
-    uint32_t in_cols = in_shape[2];
-    uint32_t in_channels = in_shape[3];
-
-    size_t out_rows, out_cols;
-    int pad_top, pad_left;
-    if (this->_padding == VALID)
-    {
-      out_rows = ((size_t) ceil(((float)(in_rows - this->_window_rows) + 1) / ((float)this->_row_stride)));
-      out_cols = ((size_t) ceil(((float)(in_cols - this->_window_cols) + 1) / ((float)this->_col_stride)));
-      // no padding for VALID
-      pad_top = 0;
-      pad_left = 0;
-    } 
-    else 
-    { 
-      // SAME padding
-      out_rows = ((size_t) ceil(((float)in_rows) / ((float) this->_row_stride)));
-      out_cols = ((size_t) ceil(((float)in_cols) / ((float) this->_col_stride)));
-      if (in_rows % this->_row_stride == 0) 
-      {
-        pad_top = std::max(this->_window_rows - this->_row_stride, 0) / 2;
-      } 
-      else 
-      {
-        pad_top = std::max(this->_window_rows - (((int) in_rows) % this->_row_stride), 0) / 2;
-      }
-      
-      if (in_cols % this->_col_stride == 0) 
-      {
-        pad_left = std::max(this->_window_cols - this->_col_stride, 0) / 2;
-      } 
-      else 
-      {
-        pad_left = std::max(this->_window_cols - (((int) in_cols) % this->_col_stride), 0) / 2;
-      }
-    }
-
-    TensorShape out_shape;
-    out_shape.clear();
-    out_shape.push_back(out_rows);
-    out_shape.push_back(out_cols);
-    out_shape.push_back(in_channels);
-    im_out_s->resize(out_shape);
-
-    int8_t *       Im_in      = (int8_t *)       im_in_s->read<T>(0, 0);
-    const uint16_t dim_im_in  = (const uint16_t) im_in_s->getShape()[1]; 
-    const uint16_t ch_im_in   = (const uint16_t) im_in_s->getShape()[3];
-    const uint16_t dim_kernel = (const uint16_t) this->_window_rows;
-    const uint16_t padding    = (const uint16_t) pad_top;
-    const uint16_t stride     = (const uint16_t) this->_row_stride;
-    const uint16_t dim_im_out = (const uint16_t) im_out_s->getShape()[0];
-    int8_t *       bufferA    = nullptr; 
-    int8_t *       Im_out     = (int8_t *)       im_out_s->write<T>(0, 0);
-
-    riscv_maxpool_int8_HWC( Im_in,
-                        dim_im_in,
-                        ch_im_in,
-                        dim_kernel,
-                        padding,
-                        stride,
-                        dim_im_out,
-                        bufferA,
-                        Im_out);
+    QntMaxPoolingRiscv<T>(this->inputs[0], this->outputs[0],
+                         this->_window_rows, this->_window_cols,
+                         this->_row_stride, this->_col_stride,
+                         this->_padding, this->_padding);
 #else
     S_TENSOR in_min_tensor = this->inputs[1];
     S_TENSOR in_max_tensor = this->inputs[2];

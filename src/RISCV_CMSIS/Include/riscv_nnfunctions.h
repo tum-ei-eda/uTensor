@@ -25,7 +25,7 @@
 #ifndef _RISCV_NNFUNCTIONS_H
 #define _RISCV_NNFUNCTIONS_H
 
-#include </usr/local/research/projects/SystemDesign/tools/riscv/rv32imacv/lib/gcc/riscv32-unknown-elf/8.3.0/include/stdint-gcc.h>
+#include </usr/local/research/projects/SystemDesign/tools/riscv/current/lib/gcc/riscv32-unknown-elf/9.2.0/include/stdint.h>
 #include <stdio.h>
 
 #ifdef __cplusplus

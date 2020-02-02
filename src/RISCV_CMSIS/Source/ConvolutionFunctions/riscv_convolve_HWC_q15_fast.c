@@ -101,7 +101,7 @@ riscv_convolve_HWC_int16_fast(const int16_t * Im_in,
     if (ch_im_in % 2 != 0 || ch_im_out % 2 != 0)
     {
         /* check if the input dimension meets the constraints */
-        printf("Dimension mismatch\n");
+       // printf("Dimension mismatch\n");
         return;
     }
 
