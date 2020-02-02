@@ -28,11 +28,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#ifdef __cplusplus
-extern    "C"
-{
-#endif
-
 static inline int32_t __SSAT(int32_t val, uint32_t sat) 
   {
     if ((sat >= 1U) && (sat <= 32U))
@@ -422,9 +417,6 @@ static inline uint32_t __USAT(int32_t val, uint32_t sat)
                                            const int16_t * bias,
                                            int16_t * pOut,
                                            int16_t * vec_buffer);
-#ifdef __cplusplus
-}
-#endif
 
 /*
  *  Other functions
@@ -432,10 +424,6 @@ static inline uint32_t __USAT(int32_t val, uint32_t sat)
  *  Basic implementation is supported here
  */
 
-#ifdef __cplusplus
-extern    "C"
-{
-#endif
 
 /**
  * @defgroup BasicMath Basic math functions
@@ -575,9 +563,5 @@ void riscv_softmax_with_batch_int8(const int8_t * vec_in, const uint16_t nb_batc
    */
 
 void riscv_softmax_int16(const int16_t * vec_in, const uint16_t dim_vec, int16_t * p_out);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

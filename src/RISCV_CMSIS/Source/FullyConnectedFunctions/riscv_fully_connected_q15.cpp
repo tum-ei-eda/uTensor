@@ -28,7 +28,7 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "riscv_nnfunctions.h"
+#include "riscv_nnfunctions.hpp"
 
 /**
  *  @ingroup groupNN
@@ -106,23 +106,23 @@ riscv_fully_connected_int16(const int16_t * pV,
     {
       int tmp_vl = 0;
       asm volatile ("vsetvli %[tmp_vl], %[colCnt], e16 \n" // set register setting to 16-bit values and calculate tmp_vl=min(maxvl=2, colCnt)
-                    "vlh.v v0, (%[pA]) \n " // load from input Matrix into v0
-                    "vlh.v v1, (%[pB]) \n " // load from input Vector int v1
+                    "vlw.v v0, (%[pA]) \n " // load from input Matrix into v0
+                    "vlw.v v1, (%[pB]) \n " // load from input Vector int v1
                     "vlw.v v2, (%[sum])\n " // load from sum into v2
                     "vmacc.vv v2, v1, v0 \n"  // v2 = v1 * v0 + v2
                     "vsw.v v2, (%[sum]) \n"   // save v2 into sum
                     "add %[pB], %[pB], %[tmp_vl] \n"  // adjust address to input vector
-                    "vlh.v v3, (%[pB]) \n " 
+                    "vlw.v v3, (%[pB]) \n " 
                     "vlw.v v4, (%[sum2])\n "
                     "vmacc.vv v4, v3, v0 \n"
                     "vsw.v v4, (%[sum2]) \n"
                     "add %[pB], %[pB], %[tmp_vl] \n"
-                    "vlh.v v3, (%[pB]) \n "
+                    "vlw.v v3, (%[pB]) \n "
                     "vlw.v v4, (%[sum3])\n "
                     "vmacc.vv v4, v3, v0 \n"
                     "vsw.v v4, (%[sum3]) \n"
                     "add %[pB], %[pB], %[tmp_vl] \n"
-                    "vlh.v v5, (%[pB]) \n "
+                    "vlw.v v5, (%[pB]) \n "
                     "vlw.v v6, (%[sum4])\n "
                     "vmacc.vv v6, v5, v0 \n"
                     "vsw.v v6, (%[sum4]) \n"
@@ -172,15 +172,15 @@ riscv_fully_connected_int16(const int16_t * pV,
       int32_t     inV1, inV2, inM1, inM2;
       int tmp_vl = 0;
       asm volatile ("vsetvli %[tmp_vl], %[colCnt], e16 \n" // set register setting to 16-bit values and calculate tmp_vl=min(maxvl=2, colCnt)
-                    "vlh.v v0, (%[pA]) \n "           // load from input Matrix into v0
-                    "vlh.v v1, (%[pB]) \n "           // load from input Vector int v1
+                    "vlw.v v0, (%[pA]) \n "           // load from input Matrix into v0
+                    "vlw.v v1, (%[pB]) \n "           // load from input Vector int v1
                     "vlw.v v2, (%[sum])\n "           // load from sum into v2
                     "vmacc.vv v2, v1, v0 \n"          // v2 = v1 * v0 + v2
                     "vsw.v v2, (%[sum]) \n"           // save v2 into sum
                     "add %[pB], %[pB], %[tmp_vl] \n"  // adjust address to input vector
                     "add %[pA], %[pA], %[tmp_vl] \n"  // adjust address to input vector
-                    "vlh.v v3, (%[pA]) \n "           // load from input Matrix into v0
-                    "vlh.v v4, (%[pB]) \n "           // load from input Vector int v1
+                    "vlw.v v3, (%[pA]) \n "           // load from input Matrix into v0
+                    "vlw.v v4, (%[pB]) \n "           // load from input Vector int v1
                     "vlw.v v5, (%[sum])\n "           // load from sum into v2
                     "vmacc.vv v5, v3, v4 \n"          // v5 = v3 * v4 + v5
                     "vsw.v v5, (%[sum]) \n"           // save v5 into sum

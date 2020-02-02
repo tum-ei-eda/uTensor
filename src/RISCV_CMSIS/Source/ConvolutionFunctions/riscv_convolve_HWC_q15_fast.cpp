@@ -18,8 +18,8 @@
 
 /* ----------------------------------------------------------------------
  * Project:      CMSIS NN Library
- * Title:        riscv_convolve_HWC_int16_basic.c
- * Description:  int16 version of convolution
+ * Title:        riscv_convolve_HWC_int16_fast.c
+ * Description:  Fast int16 version of convolution
  *
  * $Date:        17. January 2018
  * $Revision:    V.1.0.0
@@ -28,7 +28,7 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "riscv_nnfunctions.h"
+#include "riscv_nnfunctions.hpp"
 
 /**
  *  @ingroup groupNN
@@ -40,7 +40,7 @@
  */
 
   /**
-   * @brief Basic int16 convolution function
+   * @brief Fast int16 convolution function
    * @param[in]       Im_in       pointer to input tensor
    * @param[in]       dim_im_in   input tensor dimention
    * @param[in]       ch_im_in    number of input tensor channels
@@ -56,42 +56,54 @@
    * @param[in]       dim_im_out  output tensor dimension
    * @param[in,out]   bufferA     pointer to buffer space for input
    * @param[in,out]   bufferB     pointer to buffer space for output
-   * @return     The function returns <code>riscv_MATH_SUCCESS</code>
+   * @return     The function returns either
+   * <code>riscv_MATH_SIZE_MISMATCH</code> or <code>riscv_MATH_SUCCESS</code> based on the outcome of size checking.
    *
    * @details
    *
    * <b>Buffer size:</b>
    *
-   * bufferA size: ch_im_in*dim_kernel*dim_kernel
+   * bufferA size: 2*ch_im_in*dim_kernel*dim_kernel
    *
    * bufferB size: 0
    *
-   * This basic version is designed to work for any input tensor and weight
-   * dimension.
+   * <b>Input dimension constraints:</b>
+   *
+   * ch_im_in is multiple of 2
+   *
+   * ch_im_out is multipe of 2
+   *
    */
 
 void
-riscv_convolve_HWC_int16_basic(const int16_t * Im_in,
-                           const uint16_t dim_im_in,
-                           const uint16_t ch_im_in,
-                           const int16_t * wt,
-                           const uint16_t ch_im_out,
-                           const uint16_t dim_kernel,
-                           const uint16_t padding,
-                           const uint16_t stride,
-                           const int16_t * bias,
-                           const uint16_t bias_shift,
-                           const uint16_t out_shift,
-                           int16_t * Im_out,
-                           const uint16_t dim_im_out,
-                           int16_t * bufferA,
-                           int8_t * bufferB)
+riscv_convolve_HWC_int16_fast(const int16_t * Im_in,
+                          const uint16_t dim_im_in,
+                          const uint16_t ch_im_in,
+                          const int16_t * wt,
+                          const uint16_t ch_im_out,
+                          const uint16_t dim_kernel,
+                          const uint16_t padding,
+                          const uint16_t stride,
+                          const int16_t * bias,
+                          const uint16_t bias_shift,
+                          const uint16_t out_shift,
+                          int16_t * Im_out,
+                          const uint16_t dim_im_out,
+                          int16_t * bufferA,
+                          int8_t * bufferB)
 {
     (void)bufferB;
     /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
     uint16_t  i, j, k, l, m, n;
     int       conv_out;
     signed char in_row, in_col;
+
+    if (ch_im_in % 2 != 0 || ch_im_out % 2 != 0)
+    {
+        /* check if the input dimension meets the constraints */
+       // printf("Dimension mismatch\n");
+        return;
+    }
 
     for (i = 0; i < ch_im_out; i++)
     {
@@ -114,10 +126,6 @@ riscv_convolve_HWC_int16_basic(const int16_t * Im_in,
                                     Im_in[(in_row * dim_im_in + in_col) * ch_im_in +
                                           l] * wt[i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel +
                                                                                             n) * ch_im_in + l];
-                                /*printf("Im_in[%d] * wt[%d]: %d * %d\n", (in_row * dim_im_in + in_col) * ch_im_in + l, 
-                                                                        Im_in[(in_row * dim_im_in + in_col) * ch_im_in + l],
-                                                                        i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel + n) * ch_im_in + l,
-                                                                        wt[i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel + n) * ch_im_in + l]);*/
                             }
                         }
                     }

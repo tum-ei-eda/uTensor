@@ -18,8 +18,8 @@
 
 /* ----------------------------------------------------------------------
  * Project:      CMSIS NN Library
- * Title:        riscv_convolve_HWC_int8_basic.c
- * Description:	 int8 version of convolution
+ * Title:        riscv_convolve_HWC_int8_RGB.c
+ * Description:  int8 version of convolution for RGB image
  *
  * $Date:        17. January 2018
  * $Revision:    V.1.0.0
@@ -27,7 +27,7 @@
  * Target Processor:  Cortex-M cores
  *
  * -------------------------------------------------------------------- */
-#include "riscv_nnfunctions.h"
+#include "riscv_nnfunctions.hpp"
 
 /**
  *  @ingroup groupNN
@@ -39,7 +39,7 @@
  */
 
   /**
-   * @brief Basic int8 convolution function
+   * @brief int8 convolution function for RGB image
    * @param[in]       Im_in       pointer to input tensor
    * @param[in]       dim_im_in   input tensor dimention
    * @param[in]       ch_im_in    number of input tensor channels
@@ -55,7 +55,8 @@
    * @param[in]       dim_im_out  output tensor dimension
    * @param[in,out]   bufferA     pointer to buffer space for input
    * @param[in,out]   bufferB     pointer to buffer space for output
-   * @return     The function returns <code>riscv_MATH_SUCCESS</code>
+   * @return     The function returns either
+   * <code>riscv_MATH_SIZE_MISMATCH</code> or <code>riscv_MATH_SUCCESS</code> based on the outcome of size checking.
    *
    * @details
    *
@@ -65,26 +66,28 @@
    *
    * bufferB size: 0
    *
-   * This basic version is designed to work for any input tensor and weight
-   * dimension.
+   * <b>Input dimension constraints:</b>
+   *
+   * ch_im_in equals 3
+   *
+   * This kernel is written exclusively for convolution with ch_im_in
+   * equals 3. This applies on the first layer of CNNs which has input
+   * image with RGB format.
    */
 
 void
-riscv_convolve_HWC_int8_basic(const int8_t * Im_in,
-                          const uint16_t dim_im_in,
-                          const uint16_t ch_im_in,
-                          const int8_t * wt,
-                          const uint16_t ch_im_out,
-                          const uint16_t dim_kernel,
-                          const uint16_t padding,
-                          const uint16_t stride,
-                          const int8_t * bias,
-                          const uint16_t bias_shift,
-                          const uint16_t out_shift,
-                          int8_t * Im_out,
-                          const uint16_t dim_im_out,
-                          int16_t * bufferA,
-                          int8_t * bufferB)
+riscv_convolve_HWC_int8_RGB(const int8_t * Im_in,
+                        const uint16_t dim_im_in,
+                        const uint16_t ch_im_in,
+                        const int8_t * wt,
+                        const uint16_t ch_im_out,
+                        const uint16_t dim_kernel,
+                        const uint16_t padding,
+                        const uint16_t stride,
+                        const int8_t * bias,
+                        const uint16_t bias_shift,
+                        const uint16_t out_shift,
+                        int8_t * Im_out, const uint16_t dim_im_out, int16_t * bufferA, int8_t * bufferB)
 {
     (void)bufferB;
     /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
@@ -93,18 +96,25 @@ riscv_convolve_HWC_int8_basic(const int8_t * Im_in,
     int       conv_out;
     signed char in_row, in_col;
 
+    // check if number of input channels is 3
+    if (ch_im_in != 3)
+    {
+      printf("Dimension Mismatch\n");
+        return;
+    }
+
     for (i = 0; i < ch_im_out; i++)
     {
         for (j = 0; j < dim_im_out; j++)
         {
             for (k = 0; k < dim_im_out; k++)
             {
-                conv_out = ((int32_t)bias[i] << bias_shift);
+                conv_out = (bias[i] << bias_shift);
                 for (m = 0; m < dim_kernel; m++)
                 {
                     for (n = 0; n < dim_kernel; n++)
                     {
-                        // if-for implementation
+                        /* if-for implementation */
                         in_row = stride * j + m - padding;
                         in_col = stride * k + n - padding;
                         if (in_row >= 0 && in_col >= 0 && in_row < dim_im_in && in_col < dim_im_in)

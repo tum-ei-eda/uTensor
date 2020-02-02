@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2019 riscv Limited or its affiliates. All rights reserved.
+ * Copyright (C) 2010-2019 Arm Limited or its affiliates. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -18,8 +18,9 @@
 
 /* ----------------------------------------------------------------------
  * Project:      CMSIS NN Library
- * Title:        riscv_relu_int8.c
- * Description:  int8 version of ReLU
+ * Title:        arm_relu_int16.c
+ * Description:  int16 version of ReLU
+ *
  *
  * $Date:        August 2019
  * $Revision:    V.1.0.0
@@ -28,7 +29,8 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "riscv_nnfunctions.h"
+#include "riscv_nnfunctions.hpp"
+#include <stdio.h>
 
 /**
  *  @ingroup groupNN
@@ -39,8 +41,8 @@
  * @{
  */
 
-  /**
-   * @brief int8 RELU function
+/**
+   * @brief int16 RELU function
    * @param[in,out]   data        pointer to input
    * @param[in]       size        number of elements
    *
@@ -50,40 +52,15 @@
    *
    */
 
-void riscv_relu_int8(int8_t *data, uint16_t size)
+void riscv_relu_int16(int16_t *data, uint16_t size)
 {
-    /* Run the following code as reference implementation for cores without DSP extension */
-
+    /* Run the following code as reference implementation for M cores without DSP extension */
     uint16_t i;
-
     for (i = 0; i < size; i++)
     {
         if (data[i] < 0)
             data[i] = 0;
-    }
-}
-  /**
-   * @brief int8 RELU function
-   * @param[in,out]   data        pointer to input
-   * @param[in]       size        number of elements
-   * @param[in]       ref_point   new refernce point after quantization
-   *
-   * @details
-   *
-   * Optimized relu with QSUB instructions.
-   *
-   */
-
-void riscv_relu_int8_adj(int8_t *data, uint16_t size, int16_t ref_point)
-{
-    /* Run the following code as reference implementation for cores without DSP extension */
-
-    uint16_t i;
-
-    for (i = 0; i < size; i++)
-    {
-        if (data[i] < ref_point)
-            data[i] = ref_point;
+        //printf("data[%d]: %d\n", i, data[i]);
     }
 }
 

@@ -18,8 +18,8 @@
 
 /* ----------------------------------------------------------------------
  * Project:      CMSIS NN Library
- * Title:        riscv_softmax_int8.c
- * Description:  int8 softmax function
+ * Title:        riscv_softmax_int16.c
+ * Description:  int16 softmax function
  *
  * $Date:        20. February 2018
  * $Revision:    V.1.0.0
@@ -28,7 +28,7 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "riscv_nnfunctions.h"
+#include "riscv_nnfunctions.hpp"
 
 /**
  *  @ingroup groupNN
@@ -40,15 +40,15 @@
  */
 
   /**
-   * @brief int8 softmax function
+   * @brief int16 softmax function
    * @param[in]       vec_in      pointer to input vector
    * @param[in]       dim_vec     input vector dimention
    * @param[out]      p_out       pointer to output vector
    *
    * @details
    *
-   *  Here, instead of typical natural logarithm e based softmax, we use
-   *  2-based softmax here, i.e.,:
+   *  Here, instead of typical e based softmax, we use
+   *  2-based softmax, i.e.,:
    *
    *  y_i = 2^(x_i) / sum(2^x_j)
    *
@@ -56,38 +56,15 @@
    *  But mathematically, the gradient will be the same
    *  with a log(2) scaling factor.
    *
-   *  If we compare the position of the max value in output of this
-   *  function with a reference float32 softmax (and thus using exp)
-   *  we see that the position of the max value is sometimes different.
-   *
-   *  If we do statistics on lot of input vectors we can compute
-   *  an average error rate in percent. It is the percent of time
-   *  that the max will be at a position different from the one
-   *  computed with a reference float32 implementation.
-   *
-   *  This average error rate is dependent on the vector size.
-   *  We have:
-   *
-   *  Average error rate in percent = -0.555548 + 0.246918 dim_vec
-   *  Variance of the error rate = -0.0112281 + 0.0382476 dim_vec
-   *
-   *
    */
 
-static const int int8BITS = 8;
-static const int LOG2int8BITS = 3;
-
-void riscv_softmax_int8(const int8_t * vec_in, const uint16_t dim_vec, int8_t * p_out )
+void riscv_softmax_int16(const int16_t * vec_in, const uint16_t dim_vec, int16_t * p_out)
 {
     int32_t     sum;
     int16_t   i;
     uint8_t   shift;
-    int16_t     base;
-
-    base = -128;
-
-    /* We first search for the maximum */
-
+    int32_t     base;
+    base = -1 * 0x100000;
     for (i = 0; i < dim_vec; i++)
     {
         if (vec_in[i] > base)
@@ -96,35 +73,46 @@ void riscv_softmax_int8(const int8_t * vec_in, const uint16_t dim_vec, int8_t * 
         }
     }
 
-
-    /*
-     * So the base is set to max-8, meaning
-     * that we ignore really small values.
-     * anyway, they will be 0 after shrinking to int8_t.
+    /* we ignore really small values
+     * anyway, they will be 0 after shrinking
+     * to int16_t
      */
-    base = base - int8BITS;
+    base = base - 16;
 
     sum = 0;
 
     for (i = 0; i < dim_vec; i++)
     {
-        shift = (uint8_t)__USAT(vec_in[i] - base, LOG2int8BITS);
-        sum += 0x1 << shift;
+        if (vec_in[i] > base)
+        {
+            shift = (uint8_t)__USAT(vec_in[i] - base, 5);
+            sum += 0x1 << shift;
+        }
     }
 
-    /* This is effectively (0x1 << 20) / sum */
-    int output_base = (1 << 20) / sum;
+    /* This is effectively (0x1 << 32) / sum */
+    int64_t div_base = 0x100000000LL;
+    int output_base = (int32_t)(div_base / sum);
 
-
+    /* Final confidence will be output_base >> ( 17 - (vec_in[i] - base) )
+     * so 32768 (0x1<<15) -> 100% confidence when sum = 0x1 << 16, output_base = 0x1 << 16
+     * and vec_in[i]-base = 16
+     */
     for (i = 0; i < dim_vec; i++)
     {
-
-        /* Here minimum value of 13+base-vec_in[i] will be 5 */
-        shift = (uint8_t)__USAT(13 + base - vec_in[i], 5);
-        p_out[i] = (int8_t) __SSAT((output_base >> shift), 8);
-
+        if (vec_in[i] > base)
+        {
+            /* Here minimum value of 17+base-vec[i] will be 1 */
+            shift = (uint8_t)__USAT(17+base-vec_in[i], 5);
+            p_out[i] = (int16_t) __SSAT((output_base >> shift), 16);
+        } else
+        {
+            p_out[i] = 0;
+        }
     }
+
 }
+
 /**
  * @} end of Softmax group
  */

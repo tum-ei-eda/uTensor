@@ -28,7 +28,7 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "riscv_nnfunctions.h"
+#include "riscv_nnfunctions.hpp"
 
 /**
  *  @ingroup groupNN

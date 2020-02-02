@@ -1,12 +1,12 @@
 #ifndef _UTENSORWRAPPER_H
 #define _UTENSORWRAPPER_H
 
+#include "riscv_nnfunctions.hpp"
 #include "../../uTensor/util/quantization_utils.hpp"
 #include "../../uTensor/core/tensor.hpp"
 #include "../../uTensor/core/uTensorBase.hpp"
 #include "../../uTensor/util/uTensor_util.hpp"
-#include "riscv_nnfunctions.h"
-#include <typeinfo>
+#include <type_traits>
 
 void SoftmaxRiscv(S_TENSOR input, S_TENSOR output)
 {
@@ -51,8 +51,7 @@ void ReluRiscv(S_TENSOR input, S_TENSOR output)
       out[i] = in[i];
     }
 
-    const char * type_int8 = "a";
-    if(typeid(T1).name() == type_int8) // if the input tensor has data of int8_t type
+    if constexpr (std::is_same<int8_t, T1>::value) // if the input tensor has data of int8_t type
     { riscv_relu_int8((int8_t *) out, size); }
     else
     { riscv_relu_int16((int16_t *)out, size); }
@@ -103,8 +102,7 @@ void SpatialMaxPoolingRiscv(S_TENSOR input, S_TENSOR output,
                        int row_stride, int col_stride, 
                        Padding _padding, T pad_value = 0)
 {
-    const char * type_int8 = "a";
-    if(typeid(T).name() != type_int8) 
+    if constexpr (!std::is_same<T, int8_t>::value) 
     {
       //printf("RISCV MaxPooling can process only int8_t or char");
       exit(1);
@@ -330,8 +328,7 @@ void ConvRiscv(S_TENSOR input, S_TENSOR filter, S_TENSOR output,
     int16_t *       BufferA         = nullptr;
     int8_t *        BufferB         = nullptr; 
 
-    const char * type_int8 = "a";
-    if(typeid(T1).name() == type_int8)
+    if constexpr (std::is_same<T1, int8_t>::value)
     {
       int8_t InputBias[input_rows];
       for(int i = 0; i < input_rows; i++) { InputBias[i] = 0;}
@@ -392,8 +389,7 @@ void MatMul2Riscv(S_TENSOR A, S_TENSOR B, S_TENSOR C,
     const T2 *      InputWeightMatrix       = B->read<T2>(0, 0);
     Toutput *       OutputVector            = C->write<Toutput>(0,0); 
 
-    const char * type_int8 = "a";
-    if(typeid(T1).name() == type_int8)
+    if constexpr (std::is_same<T1, int8_t>::value)
     {
       int8_t InputBias[NumOfRowsInWeightMatrix];
       for(int i = 0; i < NumOfRowsInWeightMatrix; i++) { InputBias[i] = 0;}
