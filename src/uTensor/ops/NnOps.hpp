@@ -5,7 +5,7 @@
 #include "src/uTensor/core/tensor.hpp"
 #include "src/uTensor/core/uTensorBase.hpp"
 #if defined(CMSIS)
-#include "uTensorWrapper.hpp"
+#include "src/RISCV_CMSIS/Include/uTensorWrapper.hpp"
 #endif
 #include <math.h>
 #include <typeinfo>
