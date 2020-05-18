@@ -64,139 +64,57 @@
    */
 
 void
-riscv_fully_connected_int8(const int8_t * pV,
-                       const int8_t * pM,
-                       const uint16_t dim_vec,
-                       const uint16_t num_of_rows,
-                       const uint16_t bias_shift,
-                       const uint16_t out_shift, const int8_t * bias, int8_t * pOut, int16_t * vec_buffer)
+riscv_fully_connected_int8( const int8_t * pV,
+                            const int8_t * pM,
+                            const uint16_t dim_vec,
+                            const uint16_t num_of_rows,
+                            const uint16_t bias_shift,
+                            const uint16_t out_shift, 
+                            const int8_t * bias, 
+                            int8_t * pOut, 
+                            int16_t * vec_buffer)
 {
 #if defined(USE_VEXT)
 #warning "Using V Extension"
-  //printf("Using V-Extension\n");
-    const int8_t *pB = pM;
-    int8_t     *pO = pOut;
-    const int8_t *pBias = bias;
-    const int8_t    *pA = pV;
-    uint16_t  rowCnt = num_of_rows >> 2;
-
-    while (rowCnt)
+  (void)vec_buffer;
+  uint16_t rowCnt = num_of_rows;
+  uint16_t colCnt = dim_vec & 0xFFFC;
+  const int8_t * pA = pV;
+  const int8_t * pB = pM;
+  const int8_t * pBias = bias;
+  int tmp_vl = 0;
+  while(rowCnt)
+  {
+    colCnt = dim_vec & 0xFFFC;
+    while(colCnt)
     {
-
-        int32_t     sum =  ((int32_t)(*pBias++) << bias_shift);
-        int32_t     sum2 = ((int32_t)(*pBias++) << bias_shift);
-        int32_t     sum3 = ((int32_t)(*pBias++) << bias_shift);
-        int32_t     sum4 = ((int32_t)(*pBias++) << bias_shift);
-
-        uint16_t  colCnt = dim_vec >> 2;
-
-        /*
-         * register needed:
-         * loop counter: colCnt
-         * accumulators: sum, sum2, sum3, sum4
-         * pointers: pB, pA
-         * weight data: inM11, inM12, inM13, inM14
-         * activation data: inV
-         */
-        int tmp_vl = 0;
-        while(colCnt)
-        {
-          asm volatile ("vsetvli %[tmp_vl], %[colCnt], e8 \n" // set register setting to 8-bit values and calculate tmp_vl=min(maxvl, colCnt)
-                        "vlw.v v0, (%[pA]) \n " // load from input Matrix into v0
-                        "vlw.v v1, (%[pB]) \n " // load from input Vector int v1
-                        "vlw.v v2, (%[sum])\n " // load from sum into v2
-                        "vmacc.vv v2, v1, v0 \n"  // v2 = v1 * v0 + v2
-                        "vsw.v v2, (%[sum]) \n"   // save v2 into sum
-                        "add %[pB], %[pB], %[tmp_vl] \n"  // adjust address to input vector
-                        "vlw.v v3, (%[pB]) \n " 
-                        "vlw.v v4, (%[sum2])\n "
-                        "vmacc.vv v4, v3, v0 \n"
-                        "vsw.v v4, (%[sum2]) \n"
-                        "add %[pB], %[pB], %[tmp_vl] \n"
-                        "vlw.v v3, (%[pB]) \n "
-                        "vlw.v v4, (%[sum3])\n "
-                        "vmacc.vv v4, v3, v0 \n"
-                        "vsw.v v4, (%[sum3]) \n"
-                        "add %[pB], %[pB], %[tmp_vl] \n"
-                        "vlw.v v5, (%[pB]) \n "
-                        "vlw.v v6, (%[sum4])\n "
-                        "vmacc.vv v6, v5, v0 \n"
-                        "vsw.v v6, (%[sum4]) \n"
-                        "add %[pA], %[pA], %[tmp_vl] \n" // adjust address to input Matrix
-                        :[sum] "+r"(sum), [sum2] "+r"(sum2), [sum3] "+r"(sum3), [sum4] "+r"(sum4),[pB] "+r"(pB), [pA] "+r"(pA)
-                        :[colCnt] "r"(colCnt), [tmp_vl] "r"(tmp_vl));
-          colCnt = colCnt - tmp_vl;
-        }
-
-        colCnt = dim_vec & 0x3;
-        while (colCnt)
-        {
-            int16_t     inV = *pA++;
-            int8_t      inM = *pB++;
-            int8_t      inM2 = *pB++;
-            int8_t      inM3 = *pB++;
-            int8_t      inM4 = *pB++;
-
-            sum += inV * inM;
-            sum2 += inV * inM2;
-            sum3 += inV * inM3;
-            sum4 += inV * inM4;
-            colCnt--;
-        }                       /* while over colCnt */
-        *pO++ = (int8_t) (__SSAT((sum >> out_shift), 8));
-        *pO++ = (int8_t) (__SSAT((sum2 >> out_shift), 8));
-        *pO++ = (int8_t) (__SSAT((sum3 >> out_shift), 8));
-        *pO++ = (int8_t) (__SSAT((sum4 >> out_shift), 8));
-
-        /* adjust the pointers and counters */
-        rowCnt--;
+      asm volatile ("vsetvli %[tmp_vl], %[colCnt], e8 \n" // set register setting to 16-bit values and calculate tmp_vl=min(maxvl=2, colCnt)
+                   "vlw.v v1, (%[pA]) \n " // load from input Matrix into v0
+                   "vlw.v v2, (%[pB]) \n " // load from input Vector int v1
+                   "vlw.v v3, (%[pOut])\n " // load from sum into v2
+                   //"vlw.v v3, (%[sum])\n " // load from sum into v2
+                   "vmacc.vv v3, v2, v1 \n"  // v2 = v1 * v0 + v2
+                   "vsw.v v3, (%[pOut]) \n"   // save v2 into sum
+                   //"vsw.v v3, (%[sum]) \n"   // save v2 into sum
+                   :[tmp_vl] "=r" (tmp_vl), [pOut] "+r"(pOut)
+                   //:[sum] "+r"(sum), [tmp_vl] "=r" (tmp_vl)
+                   :[colCnt] "r"(colCnt), [pA] "r"(pA), [pB] "r"(pB));
+      colCnt -= tmp_vl;
+      pA += tmp_vl;
+      pB += tmp_vl;
     }
 
-    /* left-over part of the rows */
-    rowCnt = num_of_rows & 0x3;
-
-    while (rowCnt)
+    colCnt = dim_vec & 0x3;
+    while(colCnt)
     {
-        int32_t   sum = ((int32_t)(*pBias++) << bias_shift);
-        uint16_t  colCnt = dim_vec >> 2;
-
-        pA = pV;
-        int tmp_vl = 0;
-        while(colCnt)
-        {
-          asm volatile ("vsetvli %[tmp_vl], %[colCnt], e8 \n"     // set register setting to 8-bit values and calculate tmp_vl=min(maxvl, colCnt)
-                        "vlw.v v0, (%[pA]) \n "                   // load from input Matrix into v0
-                        "vlw.v v1, (%[pB]) \n "                   // load from input Vector int v1
-                        "vlw.v v2, (%[sum])\n "                   // load from sum into v2
-                        "vmacc.vv v2, v1, v0 \n"                  // v2 = v1 * v0 + v2
-                        "vsw.v v2, (%[sum]) \n"                   // save v2 into sum
-                        "add %[pB], %[pB], %[tmp_vl] \n"          // adjust address to input vector
-                        "add %[pA], %[pA], %[tmp_vl] \n"          // adjust address to input Matrix
-                        "vlw.v v3, (%[pA]) \n "                   // load from input Matrix into v0
-                        "vlw.v v4, (%[pB]) \n "                   // load from input Vector int v1
-                        "vlw.v v5, (%[sum])\n "                   // load from sum into v2
-                        "vmacc.vv v5, v3, v4 \n"                  // v2 = v1 * v0 + v2
-                        "vsw.v v5, (%[sum]) \n"                   // save v2 into sum
-                        "add %[pB], %[pB], %[tmp_vl] \n"          // adjust address to input vector
-                        "add %[pA], %[pA], %[tmp_vl] \n"          // adjust address to input Matrix
-                        :[sum] "+r"(sum), [pB] "+r"(pB), [pA] "+r"(pA)
-                        :[colCnt] "r"(colCnt), [tmp_vl] "r"(tmp_vl));
-          colCnt = colCnt - tmp_vl;
-        }
-        /* left-over of the vector */
-        colCnt = dim_vec & 0x3;
-        while (colCnt)
-        {
-            int16_t     inV = *pA++;
-            int8_t      inM = *pB++;
-            sum += inV * inM;
-            colCnt--;
-        }
-
-        *pO++ = (int8_t) (__SSAT((sum >> out_shift), 8));
-
-        rowCnt--;
+      *pOut +=  (*pA) * (*pB++);
+      colCnt--;
+      //sum +=  (*pA) * (*pB++);
     }
+    *pOut++ += 0xFF & ((*pBias++ << bias_shift) + NN_ROUND(out_shift));
+    pA = pV;
+    rowCnt--;
+  }
 
 #else
   //printf("Using without V-Extension\n");

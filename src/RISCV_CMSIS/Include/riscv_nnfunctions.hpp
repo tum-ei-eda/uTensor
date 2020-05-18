@@ -22,11 +22,19 @@
  * These functions perform basic operations for neural network layers.
  */
 
-#ifndef _RISCV_NNFUNCTIONS_H
-#define _RISCV_NNFUNCTIONS_H
+#ifndef _RISCV_NNFUNCTIONS_HPP
+#define _RISCV_NNFUNCTIONS_HPP
 
 #include <stdint.h>
 #include <stdio.h>
+#include <cstring>
+#include <stdlib.h>
+#include <unistd.h>
+#if defined(USE_VEXT)
+#include "riscv_vext.hpp"
+#endif
+
+#define NN_ROUND(out_shift) ( (0x1u << out_shift) >> 1  )
 
 static inline int32_t __SSAT(int32_t val, uint32_t sat) 
   {
@@ -499,6 +507,30 @@ static inline uint32_t __USAT(int32_t val, uint32_t sat)
                                  const uint16_t dim_im_out,
                                  int8_t * bufferA,
                                  int8_t * Im_out);
+  /**
+   * @brief int16 max pooling function
+   * @param[in]       Im_in       pointer to input tensor
+   * @param[in]       dim_im_in   input tensor dimension
+   * @param[in]       ch_im_in    number of input tensor channels
+   * @param[in]       dim_kernel  filter kernel size
+   * @param[in]       padding     padding sizes
+   * @param[in]       stride      convolution stride
+   * @param[in]       dim_im_out  output tensor dimension
+   * @param[in,out]   bufferA     pointer to buffer space for input
+   * @param[in,out]   Im_out      pointer to output tensor
+   * @return none.
+   *
+   */
+
+    void      riscv_maxpool_int16_HWC(int16_t * Im_in,
+                                 const uint16_t dim_im_in,
+                                 const uint16_t ch_im_in,
+                                 const uint16_t dim_kernel,
+                                 const uint16_t padding,
+                                 const uint16_t stride,
+                                 const uint16_t dim_im_out,
+                                 int16_t * bufferA,
+                                 int16_t * Im_out);
 
   /**
    * @brief int8 average pooling function
@@ -564,4 +596,19 @@ void riscv_softmax_with_batch_int8(const int8_t * vec_in, const uint16_t nb_batc
 
 void riscv_softmax_int16(const int16_t * vec_in, const uint16_t dim_vec, int16_t * p_out);
 
+  /**
+   * @brief Matrix-multiplication function for convolution.
+   *
+   * @details Refer to header file for details.
+   *
+   */
+
+int8_t     *riscv_nn_mat_mult_kernel_q7_q15(const int8_t * pA,
+                                        const int16_t * pInBuffer,
+                                        const uint16_t ch_im_out,
+                                        const uint16_t numCol_A,
+                                        const uint16_t bias_shift,
+                                        const uint16_t out_shift,
+                                        const int8_t * bias,
+                                        int8_t * pOut);
 #endif

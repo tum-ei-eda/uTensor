@@ -1,5 +1,5 @@
-#ifndef _UTENSORWRAPPER_H
-#define _UTENSORWRAPPER_H
+#ifndef _UTENSORWRAPPER_HPP
+#define _UTENSORWRAPPER_HPP
 
 #include "riscv_nnfunctions.hpp"
 #include "../../uTensor/util/quantization_utils.hpp"

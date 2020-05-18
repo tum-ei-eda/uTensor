@@ -87,6 +87,64 @@ riscv_convolve_HWC_int8_basic(const int8_t * Im_in,
                           int8_t * bufferB)
 {
     (void)bufferB;
+#if defined(USE_VEXT)
+  int8_t    *pBuffer = (int8_t *)bufferA;
+  int8_t    *pOut = Im_out;
+  int8_t    *im_buffer = (int8_t *)bufferA;
+  const int8_t *pA;
+  int       i;
+  int sum = 0;
+  unsigned char tmp_val = 0;
+
+  for(int i_out_y = 0; i_out_y < dim_im_out; i_out_y++)
+  {
+    for(int i_out_x = 0; i_out_x < dim_im_out; i_out_x++)
+    {
+      for(int i_ker_y = i_out_y * stride - padding; i_ker_y < i_out_y * stride - padding + dim_kernel; i_ker_y++)
+      {
+        for(int i_ker_x = i_out_x * stride - padding; i_ker_x < i_out_x * stride - padding + dim_kernel; i_ker_x++)
+        {
+          if(i_ker_y < 0 || i_ker_y >= dim_im_in || i_ker_x < 0 || i_ker_x >= dim_im_in) // padding, fill with 0's
+          {
+            memset(pBuffer, 0, sizeof(int8_t)*ch_im_in);
+          }
+          else // copy into buffer
+          {
+            memcpy(pBuffer, (int8_t *) Im_in + (i_ker_y * dim_im_in + i_ker_x) * ch_im_in, sizeof(int8_t)*ch_im_in);
+          }
+          pBuffer += ch_im_in;
+        }
+      }
+      pA = wt;
+
+      for(i = 0; i < ch_im_out; i++)
+      {
+        sum = ((int)bias[i] << bias_shift) + NN_ROUND(out_shift);
+        const int8_t *pB = im_buffer;
+        unsigned short colCnt = ch_im_in * dim_kernel * dim_kernel & 0xFFFC;
+        while (colCnt)
+        {
+          vmacc<signed char>(pB, pA, colCnt, &tmp_val, &sum);
+          pB += tmp_val;
+          pA += tmp_val;
+          colCnt -= tmp_val;
+        }
+        colCnt = ch_im_in * dim_kernel * dim_kernel & 0x3;
+        while (colCnt)
+        {
+          int8_t     inA1 = *pA++;
+          int8_t     inB1 = *pB++;
+          sum += inA1 * inB1;
+          colCnt--;
+        }
+        *pOut++ = (int8_t) __SSAT((sum >> out_shift), 8);
+      }
+
+      /* counter reset */
+      pBuffer = im_buffer;
+    }
+  }
+#else
     /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
 
     uint16_t  i, j, k, l, m, n;
@@ -123,6 +181,7 @@ riscv_convolve_HWC_int8_basic(const int8_t * Im_in,
             }
         }
     }
+#endif
 }
 
 /**
