@@ -72,31 +72,22 @@ riscv_fully_connected_int16(const int16_t * pV,
                         int16_t * pOut,
                         int16_t * vec_buffer)
 {
+  (void)vec_buffer;
 #if defined(USE_VEXT)
 #warning "Using V Extension"
-  (void)vec_buffer;
   uint16_t rowCnt = num_of_rows;
-  uint16_t colCnt = dim_vec & 0xFFFE;
   const int16_t * pA = pV;
   const int16_t * pB = pM;
   const int16_t * pBias = bias;
-  int tmp_vl = 0;
+  unsigned char tmp_vl = 0;
+  int sum = 0;
   while(rowCnt)
   {
-    colCnt = dim_vec & 0xFFFE;
+    uint16_t colCnt = dim_vec & 0xFFFE;
+    sum =  ((int)(*pBias++) << bias_shift) + NN_ROUND(out_shift);
     while(colCnt)
     {
-      asm volatile ("vsetvli %[tmp_vl], %[colCnt], e16 \n" // set register setting to 16-bit values and calculate tmp_vl=min(maxvl=2, colCnt)
-                   "vlw.v v1, (%[pA]) \n " // load from input Matrix into v0
-                   "vlw.v v2, (%[pB]) \n " // load from input Vector int v1
-                   "vlw.v v3, (%[pOut])\n " // load from sum into v2
-                   //"vlw.v v3, (%[sum])\n " // load from sum into v2
-                   "vmacc.vv v3, v2, v1 \n"  // v2 = v1 * v0 + v2
-                   "vsw.v v3, (%[pOut]) \n"   // save v2 into sum
-                   //"vsw.v v3, (%[sum]) \n"   // save v2 into sum
-                   :[tmp_vl] "=r" (tmp_vl), [pOut] "+r"(pOut)
-                   //:[sum] "+r"(sum), [tmp_vl] "=r" (tmp_vl)
-                   :[colCnt] "r"(colCnt), [pA] "r"(pA), [pB] "r"(pB));
+      vmacc<short>(pA, pB, colCnt, &tmp_vl, &sum);
       colCnt -= tmp_vl;
       pA += tmp_vl;
       pB += tmp_vl;
@@ -104,10 +95,9 @@ riscv_fully_connected_int16(const int16_t * pV,
 
     if(dim_vec & 0x1)
     {
-      *pOut +=  (*pA) * (*pB++);
-      //sum +=  (*pA) * (*pB++);
+      sum +=  (*pA) * (*pB++);
     }
-    *pOut++ += 0xFFFF & ((*pBias++ << bias_shift) + NN_ROUND(out_shift));
+    *pOut++ =  (short) (__SSAT((sum >> out_shift), 16));
     pA = pV;
     rowCnt--;
   }
@@ -116,7 +106,6 @@ riscv_fully_connected_int16(const int16_t * pV,
    * Alternative implementation in case there is no V-Extension
    * */
 
- (void)vec_buffer;
  int       i, j;
  /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
  for (i = 0; i < num_of_rows; i++)

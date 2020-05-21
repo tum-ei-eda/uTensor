@@ -82,23 +82,15 @@ riscv_fully_connected_int8( const int8_t * pV,
   const int8_t * pA = pV;
   const int8_t * pB = pM;
   const int8_t * pBias = bias;
-  int tmp_vl = 0;
+  unsigned char tmp_vl = 0;
+  int sum = 0;
   while(rowCnt)
   {
     colCnt = dim_vec & 0xFFFC;
+    sum =  ((int)(*pBias++) << bias_shift) + NN_ROUND(out_shift);
     while(colCnt)
     {
-      asm volatile ("vsetvli %[tmp_vl], %[colCnt], e8 \n" // set register setting to 16-bit values and calculate tmp_vl=min(maxvl=2, colCnt)
-                   "vlw.v v1, (%[pA]) \n " // load from input Matrix into v0
-                   "vlw.v v2, (%[pB]) \n " // load from input Vector int v1
-                   "vlw.v v3, (%[pOut])\n " // load from sum into v2
-                   //"vlw.v v3, (%[sum])\n " // load from sum into v2
-                   "vmacc.vv v3, v2, v1 \n"  // v2 = v1 * v0 + v2
-                   "vsw.v v3, (%[pOut]) \n"   // save v2 into sum
-                   //"vsw.v v3, (%[sum]) \n"   // save v2 into sum
-                   :[tmp_vl] "=r" (tmp_vl), [pOut] "+r"(pOut)
-                   //:[sum] "+r"(sum), [tmp_vl] "=r" (tmp_vl)
-                   :[colCnt] "r"(colCnt), [pA] "r"(pA), [pB] "r"(pB));
+      vmacc<signed char>(pA, pB, colCnt, &tmp_vl, &sum);
       colCnt -= tmp_vl;
       pA += tmp_vl;
       pB += tmp_vl;
@@ -107,11 +99,10 @@ riscv_fully_connected_int8( const int8_t * pV,
     colCnt = dim_vec & 0x3;
     while(colCnt)
     {
-      *pOut +=  (*pA) * (*pB++);
       colCnt--;
-      //sum +=  (*pA) * (*pB++);
+      sum +=  (*pA) * (*pB++);
     }
-    *pOut++ += 0xFF & ((*pBias++ << bias_shift) + NN_ROUND(out_shift));
+    *pOut++ =  (signed char) (__SSAT((sum >> out_shift), 8));
     pA = pV;
     rowCnt--;
   }
