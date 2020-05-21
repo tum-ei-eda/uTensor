@@ -161,129 +161,7 @@ static inline uint32_t __USAT(int32_t val, uint32_t sat)
                                           int16_t * bufferA,
                                           int8_t * bufferB);
 
-  /**
-   * @brief Fast int8 convolution function
-   * @param[in]       Im_in       pointer to input tensor
-   * @param[in]       dim_im_in   input tensor dimension
-   * @param[in]       ch_im_in    number of input tensor channels
-   * @param[in]       wt          pointer to kernel weights
-   * @param[in]       ch_im_out   number of filters, i.e., output tensor channels
-   * @param[in]       dim_kernel  filter kernel size
-   * @param[in]       padding     padding sizes
-   * @param[in]       stride      convolution stride
-   * @param[in]       bias        pointer to bias
-   * @param[in]       bias_shift  amount of left-shift for bias
-   * @param[in]       out_shift   amount of right-shift for output
-   * @param[in,out]   Im_out      pointer to output tensor
-   * @param[in]       dim_im_out  output tensor dimension
-   * @param[in,out]   bufferA     pointer to buffer space for input
-   * @param[in,out]   bufferB     pointer to buffer space for output
-   * @return     The function returns either
-   * <code>riscv_MATH_SIZE_MISMATCH</code> or <code>riscv_MATH_SUCCESS</code> based on the outcome of size checking.
-   *
-   * This function is the version with full list of optimization tricks, but with
-   * some contraints:
-   *   ch_im_in is multiple of 4
-   *   ch_im_out is multiple of 2
-   */
-    void riscv_convolve_HWC_int8_fast(const int8_t * Im_in,
-                                        const uint16_t dim_im_in,
-                                        const uint16_t ch_im_in,
-                                        const int8_t * wt,
-                                        const uint16_t ch_im_out,
-                                        const uint16_t dim_kernel,
-                                        const uint16_t padding,
-                                        const uint16_t stride,
-                                        const int8_t * bias,
-                                        const uint16_t bias_shift,
-                                        const uint16_t out_shift,
-                                        int8_t * Im_out,
-                                        const uint16_t dim_im_out,
-                                        int16_t * bufferA,
-                                        int8_t * bufferB);
 
-  /**
-   * @brief int8 version of convolution for RGB image
-   * @param[in]       Im_in       pointer to input tensor
-   * @param[in]       dim_im_in   input tensor dimension
-   * @param[in]       ch_im_in    number of input tensor channels
-   * @param[in]       wt          pointer to kernel weights
-   * @param[in]       ch_im_out   number of filters, i.e., output tensor channels
-   * @param[in]       dim_kernel  filter kernel size
-   * @param[in]       padding     padding sizes
-   * @param[in]       stride      convolution stride
-   * @param[in]       bias        pointer to bias
-   * @param[in]       bias_shift  amount of left-shift for bias
-   * @param[in]       out_shift   amount of right-shift for output
-   * @param[in,out]   Im_out      pointer to output tensor
-   * @param[in]       dim_im_out  output tensor dimension
-   * @param[in,out]   bufferA     pointer to buffer space for input
-   * @param[in,out]   bufferB     pointer to buffer space for output
-   * @return     The function returns either
-   * <code>riscv_MATH_SIZE_MISMATCH</code> or <code>riscv_MATH_SUCCESS</code> based on the outcome of size checking.
-   *
-   * This kernel is written exclusively for convolution with ch_im_in
-   * equals 3. This applies on the first layer of CNNs which has input
-   * image with RGB format.
-   */
-
-    void riscv_convolve_HWC_int8_RGB(const int8_t * Im_in,
-                                       const uint16_t dim_im_in,
-                                       const uint16_t ch_im_in,
-                                       const int8_t * wt,
-                                       const uint16_t ch_im_out,
-                                       const uint16_t dim_kernel,
-                                       const uint16_t padding,
-                                       const uint16_t stride,
-                                       const int8_t * bias,
-                                       const uint16_t bias_shift,
-                                       const uint16_t out_shift,
-                                       int8_t * Im_out,
-                                       const uint16_t dim_im_out,
-                                       int16_t * bufferA,
-                                       int8_t * bufferB);
-
-  /**
-   * @brief Fast int16 convolution function
-   * @param[in]       Im_in       pointer to input tensor
-   * @param[in]       dim_im_in   input tensor dimension
-   * @param[in]       ch_im_in    number of input tensor channels
-   * @param[in]       wt          pointer to kernel weights
-   * @param[in]       ch_im_out   number of filters, i.e., output tensor channels
-   * @param[in]       dim_kernel  filter kernel size
-   * @param[in]       padding     padding sizes
-   * @param[in]       stride      convolution stride
-   * @param[in]       bias        pointer to bias
-   * @param[in]       bias_shift  amount of left-shift for bias
-   * @param[in]       out_shift   amount of right-shift for output
-   * @param[in,out]   Im_out      pointer to output tensor
-   * @param[in]       dim_im_out  output tensor dimension
-   * @param[in,out]   bufferA     pointer to buffer space for input
-   * @param[in,out]   bufferB     pointer to buffer space for output
-   * @return     The function returns either
-   * <code>riscv_MATH_SIZE_MISMATCH</code> or <code>riscv_MATH_SUCCESS</code> based on the outcome of size checking.
-   *
-   * This function is the version with full list of optimization tricks, but with
-   * some contraints:
-   *   ch_im_in is multiple of 2
-   *   ch_im_out is multiple of 2
-   */
-
-    void riscv_convolve_HWC_int16_fast(const int16_t * Im_in,
-                                         const uint16_t dim_im_in,
-                                         const uint16_t ch_im_in,
-                                         const int16_t * wt,
-                                         const uint16_t ch_im_out,
-                                         const uint16_t dim_kernel,
-                                         const uint16_t padding,
-                                         const uint16_t stride,
-                                         const int16_t * bias,
-                                         const uint16_t bias_shift,
-                                         const uint16_t out_shift,
-                                         int16_t * Im_out,
-                                         const uint16_t dim_im_out,
-                                         int16_t * bufferA,
-                                         int8_t * bufferB);
 
 /**
  * @defgroup FC Fully-connected Layer Functions
@@ -327,31 +205,6 @@ static inline uint32_t __USAT(int32_t val, uint32_t sat)
                                       int16_t * vec_buffer);
 
   /**
-   * @brief int8 opt fully-connected layer function
-   * @param[in]       pV          pointer to input vector
-   * @param[in]       pM          pointer to matrix weights
-   * @param[in]       dim_vec     length of the vector
-   * @param[in]       num_of_rows number of rows in weight matrix
-   * @param[in]       bias_shift  amount of left-shift for bias
-   * @param[in]       out_shift   amount of right-shift for output
-   * @param[in]       bias        pointer to bias
-   * @param[in,out]   pOut        pointer to output vector
-   * @param[in,out]   vec_buffer  pointer to buffer space for input
-   * @return     The function returns <code>riscv_MATH_SUCCESS</code>
-   *
-   */
-
-    void riscv_fully_connected_int8_opt(const int8_t * pV,
-                                          const int8_t * pM,
-                                          const uint16_t dim_vec,
-                                          const uint16_t num_of_rows,
-                                          const uint16_t bias_shift,
-                                          const uint16_t out_shift,
-                                          const int8_t * bias,
-                                          int8_t * pOut,
-                                          int16_t * vec_buffer);
-
-  /**
    * @brief int16 basic fully-connected layer function
    * @param[in]       pV          pointer to input vector
    * @param[in]       pM          pointer to matrix weights
@@ -375,70 +228,6 @@ static inline uint32_t __USAT(int32_t val, uint32_t sat)
                                        const int16_t * bias,
                                        int16_t * pOut,
                                        int16_t * vec_buffer);
-
-  /**
-   * @brief int16 opt fully-connected layer function
-   * @param[in]       pV          pointer to input vector
-   * @param[in]       pM          pointer to matrix weights
-   * @param[in]       dim_vec     length of the vector
-   * @param[in]       num_of_rows number of rows in weight matrix
-   * @param[in]       bias_shift  amount of left-shift for bias
-   * @param[in]       out_shift   amount of right-shift for output
-   * @param[in]       bias        pointer to bias
-   * @param[in,out]   pOut        pointer to output vector
-   * @param[in,out]   vec_buffer  pointer to buffer space for input
-   * @return     The function returns <code>riscv_MATH_SUCCESS</code>
-   *
-   */
-
-    void riscv_fully_connected_int16_opt(const int16_t * pV,
-                                           const int16_t * pM,
-                                           const uint16_t dim_vec,
-                                           const uint16_t num_of_rows,
-                                           const uint16_t bias_shift,
-                                           const uint16_t out_shift,
-                                           const int16_t * bias,
-                                           int16_t * pOut,
-                                           int16_t * vec_buffer);
-
-  /**
-   * @brief int16 opt fully-connected layer function
-   * @param[in]       pV          pointer to input vector
-   * @param[in]       pM          pointer to matrix weights
-   * @param[in]       dim_vec     length of the vector
-   * @param[in]       num_of_rows number of rows in weight matrix
-   * @param[in]       bias_shift  amount of left-shift for bias
-   * @param[in]       out_shift   amount of right-shift for output
-   * @param[in]       bias        pointer to bias
-   * @param[in,out]   pOut        pointer to output vector
-   * @param[in,out]   vec_buffer  pointer to buffer space for input
-   * @return     The function returns <code>riscv_MATH_SUCCESS</code>
-   *
-   */
-
-    void riscv_fully_connected_int16_vopt(const int16_t * pV,
-                                           const int16_t * pM,
-                                           const uint16_t dim_vec,
-                                           const uint16_t num_of_rows,
-                                           const uint16_t bias_shift,
-                                           const uint16_t out_shift,
-                                           const int16_t * bias,
-                                           int16_t * pOut,
-                                           int16_t * vec_buffer);
-
-/*
- *  Other functions
- *  These layers are typically not timing critical
- *  Basic implementation is supported here
- */
-
-
-/**
- * @defgroup BasicMath Basic math functions
- *
- * Perform element wise add and multiplication operations.
- *
- */
 
 /**
  * @defgroup Acti Neural Network Activation Functions
@@ -596,19 +385,4 @@ void riscv_softmax_with_batch_int8(const int8_t * vec_in, const uint16_t nb_batc
 
 void riscv_softmax_int16(const int16_t * vec_in, const uint16_t dim_vec, int16_t * p_out);
 
-  /**
-   * @brief Matrix-multiplication function for convolution.
-   *
-   * @details Refer to header file for details.
-   *
-   */
-
-int8_t     *riscv_nn_mat_mult_kernel_q7_q15(const int8_t * pA,
-                                        const int16_t * pInBuffer,
-                                        const uint16_t ch_im_out,
-                                        const uint16_t numCol_A,
-                                        const uint16_t bias_shift,
-                                        const uint16_t out_shift,
-                                        const int8_t * bias,
-                                        int8_t * pOut);
 #endif
