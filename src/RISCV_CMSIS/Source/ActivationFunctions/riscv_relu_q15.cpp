@@ -54,6 +54,25 @@
 
 void riscv_relu_int16(int16_t *data, uint16_t size)
 {
+#if defined(USE_VEXT)
+#warning "Using V-Extenxion"
+  int cmp_val = 0;
+  unsigned char tmp_vl = 0;
+  unsigned short elemCnt = size & 0xFFFE;
+  while(elemCnt)
+  {
+    vmax_vx<short>(data, (short *)cmp_val, elemCnt, &tmp_vl);
+    elemCnt -= tmp_vl;
+    data += tmp_vl; 
+  }
+  if(elemCnt & 0x1)
+  {
+    if(*data < 0)
+    {
+      *data = 0;
+    }
+  }
+#else
     /* Run the following code as reference implementation for M cores without DSP extension */
     uint16_t i;
     for (i = 0; i < size; i++)
@@ -62,6 +81,7 @@ void riscv_relu_int16(int16_t *data, uint16_t size)
             data[i] = 0;
         //printf("data[%d]: %d\n", i, data[i]);
     }
+#endif
 }
 
 /**

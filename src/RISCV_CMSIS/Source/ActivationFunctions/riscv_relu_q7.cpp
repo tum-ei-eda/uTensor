@@ -52,15 +52,37 @@
 
 void riscv_relu_int8(int8_t *data, uint16_t size)
 {
-    /* Run the following code as reference implementation for cores without DSP extension */
-
+#if defined(USE_VEXT)
+#warning "Using V-Extenxion"
+  int cmp_val = 0;
+  unsigned char tmp_vl = 0;
+  unsigned short elemCnt = size & 0xFFFC;
+  while(elemCnt)
+  {
+    vmax_vx<signed char>(data, (signed char *)cmp_val, elemCnt, &tmp_vl);
+    elemCnt -= tmp_vl;
+    data += tmp_vl; 
+  }
+  elemCnt = size & 0x3;
+  while(elemCnt)
+  {
+    if(*data < 0)
+    {
+      *data = 0;
+    }
+    elemCnt--;
+    data++;
+  }
+#else
+    /* Run the following code as reference implementation for M cores without DSP extension */
     uint16_t i;
-
     for (i = 0; i < size; i++)
     {
         if (data[i] < 0)
             data[i] = 0;
+        //printf("data[%d]: %d\n", i, data[i]);
     }
+#endif
 }
   /**
    * @brief int8 RELU function
