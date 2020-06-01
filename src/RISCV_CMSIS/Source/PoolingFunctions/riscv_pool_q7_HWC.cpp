@@ -39,6 +39,37 @@
  * @{
  */
 
+static void compare_and_replace_if_larger_q7(int8_t * base,   // base data
+                                             const int8_t * target,   // compare target
+                                             const uint8_t length  // data length
+                                             )
+{
+    int8_t     *pIn = base;
+    const int8_t     *pCom = target;
+    uint8_t  cnt = length & 0xFFFC;
+    uint8_t   tmp_vl = 0;
+
+    while (cnt)
+    {
+      vmax_vv<int8_t>(pIn, pCom, cnt, &tmp_vl, pIn);
+      cnt -= tmp_vl;
+      pIn += tmp_vl;
+      pCom += tmp_vl;
+    }
+
+    cnt = length & 0x3;
+    while(cnt)
+    {
+      if (*pCom > *pIn)
+      {
+        *pIn = *pCom;
+      }
+      cnt--;
+      pIn++;
+      pCom++;
+    }
+}
+
   /**
    * @brief int8 max pooling function
    * @param[in, out]  Im_in       pointer to input tensor
@@ -69,6 +100,75 @@ riscv_maxpool_int8_HWC(int8_t * Im_in,
                    const uint16_t padding,
                    const uint16_t stride, const uint16_t dim_im_out, int8_t * bufferA, int8_t * Im_out)
 {
+#if defined(USE_VEXT)
+#warning "Using V-Extension"
+
+    /* Run the following code for Cortex-M4 and Cortex-M7 */
+
+    int16_t   i_x, i_y;
+
+    // first does the pooling along x axis 
+    for (i_y = 0; i_y < dim_im_in; i_y++)
+    {
+      for (i_x = 0; i_x < dim_im_out; i_x++)
+      {
+        // for each output pixel 
+        int8_t     *target = Im_in + (i_y * dim_im_in + i_x) * ch_im_in;
+        int8_t     *win_start;
+        int8_t     *win_stop;
+        if (i_x * stride - padding < 0)
+        { win_start = target; }
+        else
+        { win_start = Im_in + (i_y * dim_im_in + i_x * stride - padding) * ch_im_in; }
+
+        if (i_x * stride - padding + dim_kernel >= dim_im_in) 
+        { win_stop = Im_in + (i_y * dim_im_in + dim_im_in) * ch_im_in; } 
+        else 
+        { win_stop = Im_in + (i_y * dim_im_in + i_x * stride - padding + dim_kernel) * ch_im_in; }
+
+        // first step is to copy over initial data 
+        memmove(target, win_start, ch_im_in);
+
+        // start the max operation from the second part 
+        win_start += ch_im_in;
+        for (; win_start < win_stop; win_start += ch_im_in)
+        {
+          compare_and_replace_if_larger_q7(target, win_start, ch_im_in);
+        }
+      }
+    }
+
+    /* then does the pooling along y axis */
+    for (i_y = 0; i_y < dim_im_out; i_y++)
+    {
+      /* for each output row */
+      int8_t     *target = Im_out + i_y * dim_im_out * ch_im_in;
+      int8_t     *row_start;
+      int8_t     *row_end;
+      /* setting the starting row */
+      if (i_y * stride - padding < 0)
+      { row_start = Im_in; } 
+      else
+      { row_start = Im_in + (i_y * stride - padding) * dim_im_in * ch_im_in; }
+      /* setting the stopping row */
+      if (i_y * stride - padding + dim_kernel >= dim_im_in)
+      { row_end = Im_in + dim_im_in * dim_im_in * ch_im_in; } 
+      else
+      { row_end = Im_in + (i_y * stride - padding + dim_kernel) * dim_im_in * ch_im_in; }
+
+      /* copy over the first row */
+      /* arm_copy_q7(row_start, target, dim_im_out * ch_im_in); */
+      memmove(target, row_start, dim_im_out * ch_im_in);
+
+      /* move over to next row */
+      row_start += ch_im_in * dim_im_in;
+
+      for (; row_start < row_end; row_start += dim_im_in * ch_im_in)
+      {
+        compare_and_replace_if_larger_q7(target, row_start, dim_im_out * ch_im_in);
+      }
+    }
+#else
     (void)bufferA;
     /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
     int16_t   i_ch_in, i_x, i_y;
@@ -98,6 +198,7 @@ riscv_maxpool_int8_HWC(int8_t * Im_in,
             }
         }
     }
+#endif
 }
 
   /**
