@@ -2,14 +2,15 @@ cmake_minimum_required(VERSION 3.10)
 
 project(utensor)
 
-set( CMAKE_VERBOSE_MAKEFILE on )
+set( CMAKE_VERBOSE_MAKEFILE off )
 add_definitions(-D__riscv__)
 
 set(CMAKE_TOOLCHAIN_FILE "../etiss/build_dir/installed/examples/SW/riscv/cmake/pulpino_tumeda/toolchain.cmake")
 
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 # Let the user decide which ML Lib to use.
-option (CMSIS "Use CMSIS implementation" OFF)
+option (CMSIS "Use CMSIS implementation" ON)
+option (USE_VEXT "Use V-Extension" ON)
 if (CMSIS)
   add_definitions(-DCMSIS)
   if(USE_VEXT)
@@ -17,7 +18,6 @@ if (CMSIS)
   endif(USE_VEXT)
   include_directories(src/RISCV_CMSIS/Include)
   file(GLOB RISCV_SOURCES src/RISCV_CMSIS/Source/*/*.cpp)
-  file(GLOB RISCV_INCLUDES src/RISCV_CMSIS/Include/*.hpp)
 endif (CMSIS)
 # set(CMAKE_CXX_FLAGS "-fPIC")
 

@@ -79,6 +79,103 @@ static const int LOG2int8BITS = 3;
 
 void riscv_softmax_int8(const int8_t * vec_in, const uint16_t dim_vec, int8_t * p_out )
 {
+#if defined(USE_VEXT)
+#warning "Using V-Extension"
+    int sum;
+    int16_t   i;
+    uint8_t   shift;
+    int16_t     base;
+    uint16_t blkCnt;
+    uint8_t tmp_vl;
+    int32_t baseV;
+    const int32_t pad=0x0d0d0d0d;
+    const int onesArr = 0x01010101;
+    const int8_t *pIn=vec_in;
+    int8_t *pOut = p_out;
+
+    base = -128;
+
+
+    /* We first search for the maximum */
+
+    for (i = 0; i < dim_vec; i++)
+    {
+        if (vec_in[i] > base)
+        {
+            base = vec_in[i];
+        }
+    }
+
+    /*
+     * So the base is set to max-8, meaning
+     * that we ignore really small values.
+     * anyway, they will be 0 after shrinking to int8_t.
+     */
+    base = base - int8BITS;
+    baseV = ((base & 0x0FF) << 24) | ((base & 0x0FF) << 16) | ((base & 0x0FF) << 8) | ((base & 0x0FF));
+    sum = 0;
+
+
+    blkCnt = dim_vec & 0xFFFC;
+
+    while(blkCnt)
+    {
+      
+      /*
+       * shift = (uint8_t)__USAT(vec_in[i] - base, LOG2Q7BITS);
+       * sum += 0x1 << shift;
+       */
+      vsub_vv<int8_t>(pIn, (int8_t *) &baseV, blkCnt, &tmp_vl, pOut); 
+      __USAT8(pOut, LOG2int8BITS); 
+      vsll_vv<int8_t>((int8_t *)&onesArr, pOut, blkCnt, &tmp_vl, pOut);
+      vmacc<int8_t>(pOut, (int8_t *)&onesArr, blkCnt, &tmp_vl, &sum); 
+      blkCnt -= tmp_vl;
+      pIn += tmp_vl;
+      pOut += tmp_vl;
+    }
+
+    blkCnt = dim_vec & 0x3;
+
+    while(blkCnt)
+    {
+       shift = (uint8_t)__USAT(*pIn++ - base, LOG2int8BITS);
+       sum += 0x1 << shift;
+       blkCnt--;
+    }
+  
+    /* This is effectively (0x1 << 20) / sum */
+    int output_base = (1 << 20) / sum;
+
+    pIn=vec_in;
+    pOut=p_out;
+
+    blkCnt = dim_vec & 0xFFFC;
+    while(blkCnt)
+    {
+
+        /* Here minimum value of 13+base-vec_in[i] will be 5 */
+      vsub_vv<int8_t>((int8_t *) &pad, pIn, blkCnt, &tmp_vl, pOut);
+      vadd_vv<int8_t>((const int8_t *) pOut, (int8_t *)&baseV, blkCnt, &tmp_vl, pOut);
+      __USAT8(pOut, 5); 
+      *pOut++ = (int8_t) __SSAT((output_base >> *pOut), 8);                                                                                                                 *pOut++ = (int8_t) __SSAT((output_base >> *pOut), 8);
+      *pOut++ = (int8_t) __SSAT((output_base >> *pOut), 8);
+      *pOut++ = (int8_t) __SSAT((output_base >> *pOut), 8);
+      __SSAT8(pOut, 8); 
+      blkCnt -= tmp_vl;
+      pIn += tmp_vl;
+    }
+
+    blkCnt = dim_vec & 0x3;
+    while(blkCnt)
+    {
+
+        /* Here minimum value of 13+base-vec_in[i] will be 5 */
+        shift = (uint8_t)__USAT(13 + base - *pIn++, 5);
+        *pOut++ = (int8_t) __SSAT((output_base >> shift), 8);
+        blkCnt --;
+    }
+
+#else
     int32_t     sum;
     int16_t   i;
     uint8_t   shift;
@@ -124,6 +221,7 @@ void riscv_softmax_int8(const int8_t * vec_in, const uint16_t dim_vec, int8_t * 
         p_out[i] = (int8_t) __SSAT((output_base >> shift), 8);
 
     }
+#endif
 }
 /**
  * @} end of Softmax group

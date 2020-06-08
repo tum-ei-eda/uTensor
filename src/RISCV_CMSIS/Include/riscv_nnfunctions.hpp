@@ -71,6 +71,106 @@ static inline uint32_t __USAT(int32_t val, uint32_t sat)
     return (uint32_t)val;
   }
 
+/*
+template<typename T>
+static inline void __USATX(int32_t * val, uint32_t sat)
+{
+    if (sat <= 31U) 
+    {    
+      T * tmp = (T *)val;
+      const uint8_t max = ((1U << sat) - 1U);
+      for(int i = 0; i < sizeof(int)/sizeof(T); i++)
+      {
+        if (tmp[i] > (T)max)
+        {
+          tmp[i] = max;
+        }
+        else if (tmp[i] < 0)
+        {
+          tmp[i] = 0;
+        }
+      }
+    }
+}
+*/
+static inline void __USAT16(int16_t * val, uint32_t sat) 
+{
+  if (sat <= 31U) 
+  {    
+    const uint16_t max = ((1U << sat) - 1U);
+    for(int i = 0; i < sizeof(int)/sizeof(int16_t); i++)
+    {
+      if (val[i] > (int16_t)max)
+      {
+        val[i] = max;
+      }
+      else if (val[i] < 0)
+      {
+        val[i] = 0;
+      }
+    }
+  }
+}
+
+static inline void __USAT8(int8_t * val, uint32_t sat) 
+{
+  if (sat <= 31U) 
+  {    
+    const uint8_t max = ((1U << sat) - 1U);
+    for(int i = 0; i < sizeof(int); i++)
+    {
+      if (val[i] > (int8_t)max)
+      {
+        val[i] = max;
+      }
+      else if (val[i] < 0)
+      {
+        val[i] = 0;
+      }
+    }
+  }
+}
+
+
+static inline void __SSAT16(int16_t * val, uint32_t sat) 
+{
+  if ((sat >= 1U) && (sat <= 32U)) 
+  {    
+    const int16_t max = (int16_t)((1U << (sat - 1U)) - 1U);
+    const int16_t min = -1 - max;
+    for(int i = 0; i < sizeof(int)/sizeof(int16_t); i++)
+    {
+      if (val[i] > max)
+      {
+        val[i] = max;
+      }
+      else if (val[i] < min)
+      {
+        val[i] = min;
+      }
+    }
+  }
+}
+
+static inline void __SSAT8(int8_t * val, uint32_t sat) 
+{
+  if ((sat >= 1U) && (sat <= 32U)) 
+  {    
+    const int8_t max = (int8_t)((1U << (sat - 1U)) - 1U);
+    const int8_t min = -1 - max;
+    for(int i = 0; i < sizeof(int); i++)
+    {
+      if (val[i] > max)
+      {
+        val[i] = max;
+      }
+      else if (val[i] < min)
+      {
+        val[i] = min;
+      }
+    }
+  }
+}
 
 /**
  * @defgroup NNConv Neural Network Convolution Functions

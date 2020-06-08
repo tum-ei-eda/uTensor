@@ -108,7 +108,6 @@ riscv_fully_connected_int8( const int8_t * pV,
   }
 
 #else
-  //printf("Using without V-Extension\n");
     int       i, j;
 
     /* Run the following code as reference implementation in case there is no V-Extension provided */
