@@ -94,6 +94,7 @@ riscv_convolve_HWC_int8_basic(const int8_t * Im_in,
   const int8_t *pA;
   int       i;
   int sum = 0;
+  int sumV = 0;
   unsigned char tmp_val = 0;
 
   for(int i_out_y = 0; i_out_y < dim_im_out; i_out_y++)
@@ -124,7 +125,8 @@ riscv_convolve_HWC_int8_basic(const int8_t * Im_in,
         unsigned short colCnt = ch_im_in * dim_kernel * dim_kernel & 0xFFFC;
         while (colCnt)
         {
-          vmacc<signed char>(pB, pA, colCnt, &tmp_val, &sum);
+          vmul_vv<signed char>(pA, pB, colCnt, &tmp_val, (int8_t *) &sumV);
+          sum += (sumV & 0xFF) + ((sumV >> 8) & 0xFF) + ((sumV >> 16) & 0xFF) + ((sumV >> 24) & 0xFF);
           pB += tmp_val;
           pA += tmp_val;
           colCnt -= tmp_val;

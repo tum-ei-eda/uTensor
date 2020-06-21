@@ -34,7 +34,35 @@
 #include "riscv_vext.hpp"
 #endif
 
+#define int32_MAX   ((int32_t)(0x7FFFFFFFL))
+#define int16_MAX   ((int16_t)(0x7FFF))
+#define int8_MAX    ((int8_t)(0x7F))
+#define int32_MIN   ((int32_t)(0x80000000L))
+#define int16_MIN   ((int16_t)(0x8000))
+#define int8_MIN    ((int8_t)(0x80))
+
 #define NN_ROUND(out_shift) ( (0x1u << out_shift) >> 1  )
+#define LEFT_SHIFT(_shift)  (_shift > 0 ? _shift : 0)
+#define RIGHT_SHIFT(_shift) (_shift > 0 ? 0 : -_shift)
+#define MASK_IF_ZERO(x)     (x) == 0 ? ~0 : 0
+#define MASK_IF_NON_ZERO(x) (x) != 0 ? ~0 : 0
+#define SELECT_USING_MASK(mask, a, b) ((mask) & (a)) ^ (~(mask) & (b))
+
+#define MAX(A,B) ((A) > (B) ? (A) : (B))
+#define MIN(A,B) ((A) < (B) ? (A) : (B))
+#define CLAMP(x, h, l) MAX(MIN((x), (h)), (l))
+
+
+typedef enum
+{
+  RISCV_MATH_SUCCESS        =  0,        /**< No error */
+  RISCV_MATH_ARGUMENT_ERROR = -1,        /**< One or more arguments are incorrect */
+  RISCV_MATH_LENGTH_ERROR   = -2,        /**< Length of data buffer is incorrect */
+  RISCV_MATH_SIZE_MISMATCH  = -3,        /**< Size of matrices is not compatible with the operation */
+  RISCV_MATH_NANINF         = -4,        /**< Not-a-number (NaN) or infinity is generated */
+  RISCV_MATH_SINGULAR       = -5,        /**< Input matrix is singular and cannot be inverted */
+  RISCV_MATH_TEST_FAILURE   = -6         /**< Test Failed */
+} riscv_status;
 
 static inline int32_t __SSAT(int32_t val, uint32_t sat) 
   {
@@ -172,6 +200,142 @@ static inline void __SSAT8(int8_t * val, uint32_t sat)
   }
 }
 
+
+int32_t riscv_fully_connected_s8_get_buffer_size(const uint16_t col_dim);
+
+/**
+ ** @brief           Rounding divide by power of two.
+ ** @param[in]       dividend - Dividend
+ ** @param[in]       exponent - Divisor = power(2, exponent)
+ **                             Range: [0, 31]
+ ** @return          Rounded result of division. Midpoint is rounded away from zero.
+ **
+ **/
+static inline int32_t riscv_nn_divide_by_power_of_two(const int32_t dividend, const int32_t exponent)
+{
+  int32_t result = 0;
+  const int32_t remainder_mask = (1l << exponent) - 1;
+  int32_t remainder = remainder_mask & dividend;
+
+  // Basic division
+  result = dividend >> exponent;
+  // Adjust 'result' for rounding (mid point away from zero)
+  int32_t threshold = remainder_mask >> 1;
+  if (result < 0)
+  {
+    threshold++;
+  }
+  if (remainder > threshold)
+  {
+    result++;
+  }
+  return result;
+}
+
+/**
+ ** @brief           Saturating doubling high multiply. Result matches
+ **                  NEON instruction VQRDMULH.
+ ** @param[in]       m1        Multiplicand
+ ** @param[in]       m2        Multiplier
+ ** @return          Result of multiplication.
+ **
+ **/
+static inline int32_t riscv_nn_sat_doubling_high_mult(const int32_t m1, const int32_t m2)
+{
+      int32_t result = 0;
+      // Rounding offset to add for a right shift of 31
+      int64_t mult = 1 << 30;
+      
+      if ((m1 < 0) ^ (m2 < 0))
+      {
+        mult = 1 - mult;
+      }
+      // Gets resolved as a SMLAL instruction
+      mult = mult + (int64_t)m1 * m2;
+      // Utilize all of the upper 32 bits. This is the doubling step
+      // as well.
+      result = mult / (1UL << 31);
+      if ((m1 == m2) && (m1 == (int32_t)int32_MIN))
+      {
+        result = int32_MAX;
+      }
+      return result;
+}
+
+
+/**
+ ** @brief           Requantize a given value.
+ ** @param[in]       val         Value to be requantized
+ ** @param[in]       multiplier  multiplier
+ ** @param[in]       shift       left or right shift for 'val * multiplier'
+ **
+ ** @return          Returns (val * multiplier)/(2 ^ shift)
+ **
+ **/
+static inline int32_t riscv_nn_requantize(const int32_t val, const int32_t multiplier, const int32_t shift)
+{
+    return riscv_nn_divide_by_power_of_two(riscv_nn_sat_doubling_high_mult(val * (1 << LEFT_SHIFT(shift)), multiplier),
+                                               RIGHT_SHIFT(shift));
+    
+}
+
+
+/**
+ ** @defgroup BasicMath Basic math functions
+ **
+ ** Element wise add and multiplication functions.
+ **
+ **/
+
+/**
+ ** @brief s8 element wise add of two vectors
+ ** @param[in]       input_1_vect            pointer to input vector 1
+ ** @param[in]       input_2_vect            pointer to input vector 2
+ ** @param[in]       input_1_offset          offset for input 1. Range: Range: -127 to 128
+ ** @param[in]       input_1_mult            multiplier for input 1
+ ** @param[in]       input_1_shift           shift for input 1
+ ** @param[in]       input_2_offset          offset for input 2. Range: Range: -127 to 128
+ ** @param[in]       input_2_mult            multiplier for input 2
+ ** @param[in]       input_2_shift           shift for input 2
+ ** @param[in]       left_shift              input left shift
+ ** @param[in,out]   output                  pointer to output vector
+ ** @param[in]       out_offset              output offset
+ ** @param[in]       out_mult                output multiplier
+ ** @param[in]       out_shift               output shift
+ ** @param[in]       out_activation_min      minimum value to clamp output to
+ ** @param[in]       out_activation_max      maximum value to clamp output to
+ ** @param[in]       block_size              number of samples
+ ** @return          The function returns    ARM_MATH_SUCCESS
+ **/
+riscv_status
+riscv_elementwise_add_s8(const int8_t *input_1_vect,
+                       const int8_t *input_2_vect,
+                       const int32_t input_1_offset,
+                       const int32_t input_1_mult,
+                       const int32_t input_1_shift,
+                       const int32_t input_2_offset,
+                       const int32_t input_2_mult,
+                       const int32_t input_2_shift,
+                       const int32_t left_shift,
+                       int8_t *output,
+                       const int32_t out_offset,
+                       const int32_t out_mult,
+                       const int32_t out_shift,
+                       const int32_t out_activation_min,
+                       const int32_t out_activation_max,
+                       const uint32_t block_size);
+riscv_status
+riscv_elementwise_mul_s8(const int8_t *input_1_vect,
+                       const int8_t *input_2_vect,
+                       const int32_t input_1_offset,
+                       const int32_t input_2_offset,
+                       int8_t *output,
+                       const int32_t out_offset,
+                       const int32_t out_mult,
+                       const int32_t out_shift,
+                       const int32_t out_activation_min,
+                       const int32_t out_activation_max,
+                       const uint32_t block_size);
 /**
  * @defgroup NNConv Neural Network Convolution Functions
  *
@@ -328,6 +492,56 @@ static inline void __SSAT8(int8_t * val, uint32_t sat)
                                        const int16_t * bias,
                                        int16_t * pOut,
                                        int16_t * vec_buffer);
+/**
+ ** @brief s8 Vector by Matrix (transposed) multiplication
+ **
+ ** @param[in]      lhs             Input left-hand side vector
+ ** @param[in]      rhs             Input right-hand side matrix (transposed)
+ ** @param[in]      bias            Input bias
+ ** @param[out]     dst             Output vector
+ ** @param[in]      lhs_offset      Offset to be added to the input values of the left-hand side vector. Range: -127 to 128
+ ** @param[in]      rhs_offset      Offset to be added to the input values of the right-hand side matrix. Range: -127 to 128
+ ** @param[in]      dst_offset      Offset to be added to the output values. Range: -127 to 128
+ ** @param[in]      dst_multiplier  Output multiplier
+ ** @param[in]      dst_shift       Output shift
+ ** @param[in]      rhs_cols        Number of columns in the right-hand side input matrix
+ ** @param[in]      rhs_rows        Number of rows in the right-hand side input matrix
+ ** @param[in]      activation_min  Minimum value to clamp the output to. Range: int8
+ ** @param[in]      activation_max  Maximum value to clamp the output to. Range: int8
+ **
+ ** @return         The function returns <code>ARM_MATH_SUCCESS</code>
+ **
+ **/
+riscv_status
+riscv_fully_connected_s8(const int8_t *input,
+                       const int8_t *kernel,
+                       const uint16_t col_dim,
+                       const uint16_t row_dim,
+                       const uint16_t nb_batches,
+                       const int32_t input_offset,
+                       const int32_t filter_offset,
+                       const int32_t out_mult,
+                       const int32_t out_shift,
+                       const int32_t output_offset,
+                       const int32_t *bias,
+                       int8_t *output,
+                       const int32_t output_activation_min,
+                       const int32_t output_activation_max,
+                       int16_t *vec_buffer);
+
+riscv_status riscv_nn_vec_mat_mult_t_s8(const int8_t *lhs,
+                                    const int8_t *rhs,
+                                    const int32_t *bias,
+                                    int8_t *dst,
+                                    const int32_t lhs_offset,
+                                    const int32_t rhs_offset,
+                                    const int32_t dst_offset,
+                                    const int32_t dst_multiplier,
+                                    const int32_t dst_shift,
+                                    const int32_t rhs_cols,
+                                    const int32_t rhs_rows,
+                                    const int32_t activation_min,
+                                    const int32_t activation_max);
 
 /**
  * @defgroup Acti Neural Network Activation Functions
@@ -463,17 +677,6 @@ static inline void __SSAT8(int8_t * val, uint32_t sat)
 
 void riscv_softmax_int8(const int8_t * vec_in, const uint16_t dim_vec, int8_t * p_out);
 
-  /**
-   * @brief int8 softmax function with batch parameter
-   * @param[in]       vec_in      pointer to input vector
-   * @param[in]       nb_batches  number of batches
-   * @param[in]       dim_vec     input vector dimension
-   * @param[out]      p_out       pointer to output vector
-   * @return none.
-   *
-   */
-
-void riscv_softmax_with_batch_int8(const int8_t * vec_in, const uint16_t nb_batches,const uint16_t dim_vec, int8_t * p_out );
   /**
    * @brief int16 softmax function
    * @param[in]       vec_in      pointer to input vector

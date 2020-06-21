@@ -80,14 +80,16 @@ riscv_fully_connected_int16(const int16_t * pV,
   const int16_t * pB = pM;
   const int16_t * pBias = bias;
   unsigned char tmp_vl = 0;
-  int sum = 0;
+  int sum = 0; 
+  int32_t sumV = 0;
   while(rowCnt)
   {
     uint16_t colCnt = dim_vec & 0xFFFE;
     sum =  ((int)(*pBias++) << bias_shift) + NN_ROUND(out_shift);
     while(colCnt)
     {
-      vmacc<short>(pA, pB, colCnt, &tmp_vl, &sum);
+      vmul_vv<short>(pA, pB, colCnt, &tmp_vl, (int16_t *) &sumV);
+      sum += (sumV & 0xFFFF) + ((sumV >> 16) & 0xFFFF);
       colCnt -= tmp_vl;
       pA += tmp_vl;
       pB += tmp_vl;

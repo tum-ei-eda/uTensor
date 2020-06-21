@@ -70,6 +70,20 @@ static inline void vadd_vv(const T * op1, const T * op2, unsigned short colCnt, 
 };
 
 template <typename T>
+static inline void vmul_vv(const T * op1, const T * op2, unsigned short colCnt, unsigned char * tmp_vl, T * pOut)
+{
+  vsetvli<T>(colCnt, tmp_vl);
+  asm volatile ("vlw.v v1, (%[op1]) \n "  
+                "vlw.v v2, (%[op2]) \n "  
+                "vlw.v v3, (%[pOut])\n " 
+                "vmul.vv v3, v2, v1 \n"  // v3[i] = v1[i] * v2[i]
+                "vsw.v v3, (%[pOut]) \n"   // save v3[i] into *pOut
+                :[pOut] "+r"(pOut)
+                :[op1] "r"(op1), [op2] "r"(op2));
+
+};
+
+template <typename T>
 static inline void vsub_vv(const T * op1, const T * op2, unsigned short colCnt, unsigned char * tmp_vl, T * pOut)
 {
   vsetvli<T>(colCnt, tmp_vl);
@@ -120,9 +134,21 @@ static inline void vmax_vv(const T * pIn_1, const T * pIn_2, unsigned short colC
 }
 
 template <typename T>
-static inline void vsll_vv(const T * pIn_1, const T * pIn_2, unsigned short colCnt, unsigned char * tmp_vl, T * pOut)
+static inline void vmin_vv(const T * pIn_1, const T * pIn_2, unsigned short colCnt, unsigned char * tmp_vl, T * pOut)
 {
   vsetvli<T>(colCnt, tmp_vl);
+  asm volatile ("vlw.v v1, (%[pIn_1]) \n"
+                "vlw.v v2, (%[pIn_2]) \n"
+                "vmin.vv v3, v1, v2 \n"
+                "vsw.v v3, (%[pOut]) \n"
+                :[pOut] "+r" (pOut)
+                :[pIn_1] "r" (pIn_1), [pIn_2] "r" (pIn_2));
+}
+
+template <typename T>
+static inline void vsll_vv(const T * pIn_1, const T * pIn_2, unsigned short colCnt, unsigned char * tmp_vl, T * pOut)
+{
+  //vsetvli<T>(colCnt, tmp_vl);
   asm volatile ("vlw.v v1, (%[pIn_1]) \n"
                 "vlw.v v2, (%[pIn_2]) \n"
                 "vsll.vv v3, v1, v2 \n" // v3[i] = v1[i] << v2[i]

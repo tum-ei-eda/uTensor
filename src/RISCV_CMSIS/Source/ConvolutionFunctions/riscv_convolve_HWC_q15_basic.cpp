@@ -98,6 +98,7 @@ riscv_convolve_HWC_int16_basic( const int16_t   * Im_in,
   int16_t    *im_buffer = bufferA;
   const int16_t *pA;
   int sum = 0;
+  int32_t sumV = 0;
   unsigned char tmp_val = 0;
 
 
@@ -129,7 +130,8 @@ riscv_convolve_HWC_int16_basic( const int16_t   * Im_in,
           uint16_t  colCnt = ch_im_in * dim_kernel * dim_kernel & 0xFFFE;
           while (colCnt)
           {
-            vmacc<short>(pB, pA, colCnt, &tmp_val, &sum);
+            vmul_vv<short>(pA, pB, colCnt, &tmp_val, (int16_t *) &sumV);
+            sum += (sumV & 0xFFFF) + ((sumV >> 16) & 0xFFFF);
             pB += tmp_val;
             pA += tmp_val;
             colCnt -= tmp_val;

@@ -84,13 +84,15 @@ riscv_fully_connected_int8( const int8_t * pV,
   const int8_t * pBias = bias;
   unsigned char tmp_vl = 0;
   int sum = 0;
+  int sumV = 0;
   while(rowCnt)
   {
     colCnt = dim_vec & 0xFFFC;
     sum =  ((int)(*pBias++) << bias_shift) + NN_ROUND(out_shift);
     while(colCnt)
     {
-      vmacc<signed char>(pA, pB, colCnt, &tmp_vl, &sum);
+      vmul_vv<signed char>(pA, pB, colCnt, &tmp_vl, (int8_t *) &sumV);
+      sum += (sumV & 0xFF) + ((sumV >> 8) & 0xFF) + ((sumV >> 16) & 0xFF) + ((sumV >> 24) & 0xFF);
       colCnt -= tmp_vl;
       pA += tmp_vl;
       pB += tmp_vl;

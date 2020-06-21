@@ -39,6 +39,7 @@
  * @{
  */
 
+#if defined(USE_VEXT)
 static void compare_and_replace_if_larger_q7(int16_t * base,   // base data
                                              const int16_t * target,   // compare target
                                              const uint16_t length  // data length
@@ -67,6 +68,7 @@ static void compare_and_replace_if_larger_q7(int16_t * base,   // base data
       pCom++;
     }
 }
+#endif
 
 
   /**

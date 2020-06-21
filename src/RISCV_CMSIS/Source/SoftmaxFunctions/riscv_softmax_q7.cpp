@@ -88,6 +88,7 @@ void riscv_softmax_int8(const int8_t * vec_in, const uint16_t dim_vec, int8_t * 
     uint16_t blkCnt;
     uint8_t tmp_vl;
     int32_t baseV;
+    int sumV = 0;
     const int32_t pad=0x0d0d0d0d;
     const int onesArr = 0x01010101;
     const int8_t *pIn=vec_in;
@@ -127,11 +128,11 @@ void riscv_softmax_int8(const int8_t * vec_in, const uint16_t dim_vec, int8_t * 
        */
       vsub_vv<int8_t>(pIn, (int8_t *) &baseV, blkCnt, &tmp_vl, pOut); 
       __USAT8(pOut, LOG2int8BITS); 
-      vsll_vv<int8_t>((int8_t *)&onesArr, pOut, blkCnt, &tmp_vl, pOut);
-      vmacc<int8_t>(pOut, (int8_t *)&onesArr, blkCnt, &tmp_vl, &sum); 
-      blkCnt -= tmp_vl;
-      pIn += tmp_vl;
-      pOut += tmp_vl;
+      vsll_vv<int8_t>((int8_t *)&onesArr, pOut, blkCnt, &tmp_vl, (int8_t *) &sumV);
+      sum += (sumV & 0xFF) + ((sumV >> 8) & 0xFF) + ((sumV >> 16) & 0xFF) + ((sumV >> 24) & 0xFF);
+      blkCnt -= 4;
+      pIn += 4;
+      pOut += 4;
     }
 
     blkCnt = dim_vec & 0x3;

@@ -39,6 +39,7 @@
  * @{
  */
 
+#if defined(USE_VEXT)
 static void compare_and_replace_if_larger_q7(int8_t * base,   // base data
                                              const int8_t * target,   // compare target
                                              const uint8_t length  // data length
@@ -69,6 +70,7 @@ static void compare_and_replace_if_larger_q7(int8_t * base,   // base data
       pCom++;
     }
 }
+#endif
 
   /**
    * @brief int8 max pooling function
